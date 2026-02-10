@@ -1,0 +1,118 @@
+/* =========================================================
+   COLLECTION PAGE ONLY
+   ---------------------------------------------------------
+   Styles used only by CollectionPage
+   Avoid shared utilities here (shared belongs in /styles/shared).
+   ========================================================= */
+
+/* ========================= */
+/* Collection page helpers   */
+/* ========================= */
+/* Page-scoped helpers for CollectionPage layout/presentation. */
+
+/* Vertical “Collection” label in left margin.
+   This is purely decorative and uses writing-mode for vertical text. */
+.collection-side-label {
+  position: absolute;
+  left: 0;
+  top: 7.25rem;
+  
+
+  /* Nudges the label left so it sits in the margin cleanly */
+  transform: translateX(-.50rem);
+
+  z-index: 3;
+
+  /* Makes the text run vertically downward (right-to-left orientation) */
+  writing-mode: vertical-rl;
+
+  /* Wide letter spacing for a “design label” vibe */
+  letter-spacing: 1.5em;
+
+  font-size: clamp(0.25rem, 7vw, 0.95rem);
+  color: rgba(255,255,255,.18);
+}
+
+/* Stronger rarity glow INSIDE media box bottom edge */
+.rarity-media-glow {
+  position: relative;
+}
+
+/* Thin bottom rim (readable on any art) */
+.rarity-media-glow::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -0.5px;             /* slightly above the bottom */
+  height: 2px;
+  pointer-events: none;
+  z-index: 3;
+
+  background: linear-gradient(
+    to right,
+    rgb(var(--rarity-rgb) / 0.00),
+    rgb(var(--rarity-rgb) / 0.75),
+    rgb(var(--rarity-rgb) / 0.00)
+  );
+
+  opacity: 0.45;
+  filter: blur(0.2px);
+  animation: rarity-bottom-rim 3s ease-in-out infinite;
+}
+
+/* Soft bloom (atmosphere) */
+.rarity-media-glow::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -0.5;
+  height: 26px;            /* taller so it reads */
+  pointer-events: none;
+  z-index: 2;
+
+  background:
+    radial-gradient(
+      70% 150% at 50% 110%,
+      rgb(var(--rarity-rgb) / 0.65),
+      rgb(var(--rarity-rgb) / 0.22) 45%,
+      rgb(var(--rarity-rgb) / 0.00) 75%
+    );
+
+  opacity: 0.38;
+  filter: blur(10px);
+  animation: rarity-bottom-bloom 3s ease-in-out infinite;
+}
+
+@keyframes rarity-bottom-bloom {
+  0%, 100% {
+    opacity: 0.28;
+    filter: blur(9px);
+  }
+  50% {
+    opacity: 0.50;      /* stronger pulse */
+    filter: blur(13px); /* “breathing” */
+  }
+}
+
+@keyframes rarity-bottom-rim {
+  0%, 100% {
+    opacity: 0.30;
+    transform: scaleX(0.92);
+  }
+  50% {
+    opacity: 0.65;      /* crisp pulse is the “read” */
+    transform: scaleX(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rarity-media-glow::before,
+  .rarity-media-glow::after {
+    animation: none;
+    opacity: 0.40;
+    transform: none;
+  }
+}
+

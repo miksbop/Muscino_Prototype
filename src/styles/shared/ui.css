@@ -1,0 +1,86 @@
+/* =========================================================
+   SHARED UI UTILITIES
+   ---------------------------------------------------------
+   Reusable helpers that affect layout or interaction
+   across multiple pages/components.
+   ========================================================= */
+
+
+/* ========================= */
+/* Subtle scrollbars          */
+/* ========================= */
+/* Used on scrollable inner panels (e.g. Collection grid).
+   Keeps the app feeling “glass-like” without loud OS UI. */
+.muscino-scroll {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255,255,255,.18) transparent;
+}
+
+/* WebKit scrollbar width */
+.muscino-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Transparent track so it blends with glass panels */
+.muscino-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Scroll thumb styled as a subtle pill */
+.muscino-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  backdrop-filter: blur(6px);
+}
+
+/* Slight visibility increase on hover */
+.muscino-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
+}
+
+
+/* ========================= */
+/* Marquee text helper       */
+/* ========================= */
+/* Keyframes for continuous horizontal scroll.
+   Assumes duplicated content moving by 50%. */
+@keyframes muscino-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Base marquee animation.
+   Duration and delay are configurable via CSS variables. */
+.muscino-marquee {
+  animation-name: muscino-marquee;
+  animation-duration: var(--marquee-duration, 10s);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: var(--marquee-delay, 1200ms);
+  animation-fill-mode: both;
+  will-change: transform;
+}
+
+/* Allows user to pause marquee for readability */
+.muscino-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Gradient mask so text fades out on the right edge */
+.muscino-marquee-mask-right {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 78%,
+    transparent 92%
+  );
+  mask-image: linear-gradient(
+    to right,
+    black 0%,
+    black 78%,
+    transparent 92%
+  );
+}

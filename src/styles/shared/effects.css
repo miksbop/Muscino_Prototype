@@ -1,0 +1,180 @@
+/* =========================================================
+   SHARED VISUAL EFFECTS
+   ---------------------------------------------------------
+   Reusable decorative effects that convey rarity or
+   interactivity. These are NOT layout rules.
+   ========================================================= */
+
+
+/* ========================= */
+/* Legendary sheen            */
+/* ========================= */
+/* TF2-style animated sheen sweep used for Legendary items */
+@keyframes muscino-sheen {
+  0%   { transform: translateX(-140%) skewX(-20deg); opacity: 0; }
+  12%  { opacity: 0.65; }
+  50%  { opacity: 0.40; }
+  100% { transform: translateX(160%) skewX(-20deg); opacity: 0; }
+}
+
+/* Overlay element that renders the sheen.
+   Pointer-events disabled because it’s decorative. */
+.muscino-legendary-sheen {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(251, 191, 36, 0.00) 35%,
+    rgba(251, 191, 36, 0.28) 45%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(251, 191, 36, 0.22) 55%,
+    rgba(251, 191, 36, 0.00) 65%,
+    transparent 100%
+  );
+
+  mix-blend-mode: screen;
+  animation: muscino-sheen 1.35s ease-in-out infinite;
+}
+
+
+/* ========================= */
+/* Rarity rotating rim        */
+/* ========================= */
+/* Container class that creates a glowing animated rim
+   around a panel or card. Color is driven by --rarity-rgb. */
+.rarity-rotating-border {
+  position: relative;
+  border-radius: 1rem;
+  isolation: isolate;
+  overflow: hidden;
+
+  --rarity-rgb: 255 255 255;
+  --angle: 0deg;
+}
+
+/* Ensures content stays above glow layers */
+.rarity-rotating-border > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The glowing rim itself (drawn via gradients + masking) */
+.rarity-rotating-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  pointer-events: none;
+
+  background:
+    radial-gradient(circle at 12% 12%,
+      rgb(var(--rarity-rgb) / 0.26),
+      transparent 46%),
+    radial-gradient(circle at 88% 88%,
+      rgb(var(--rarity-rgb) / 0.26),
+      transparent 50%),
+    conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      rgb(var(--rarity-rgb) / 0.00) 300deg,
+      rgb(var(--rarity-rgb) / 0.45) 332deg,
+      rgb(var(--rarity-rgb) / 0.00) 360deg
+    );
+
+  filter: blur(10px);
+  opacity: 0.80;
+
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
+                linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  animation: rarity-rim-spin 14s linear infinite;
+}
+
+/* Drives the conic gradient rotation */
+@keyframes rarity-rim-spin {
+  to { --angle: 360deg; }
+}
+
+
+/* ========================= */
+/* One-shot sweep effect      */
+/* ========================= */
+/* Custom property used for sweep animation */
+@property --sweep-turn {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+/* One-time sweep arc, triggered via remount */
+.rarity-rim-sweep::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 5px;
+  pointer-events: none;
+
+  background: conic-gradient(
+    from calc(315deg + var(--sweep-turn)),
+    transparent 0deg,
+    rgb(var(--rarity-rgb) / 0.00) 312deg,
+    rgb(var(--rarity-rgb) / 0.55) 326deg,
+    rgb(var(--rarity-rgb) / 0.00) 360deg
+  );
+
+  filter: blur(10px) saturate(1.3);
+  mix-blend-mode: screen;
+  opacity: 0;
+
+  -webkit-mask: linear-gradient(#000 0 0) content-box,
+                linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  animation: rarity-rim-sweep 1200ms ease-out 1;
+}
+
+/* Sweep timing curve */
+@keyframes rarity-rim-sweep {
+  0%   { --sweep-turn: 0deg; opacity: 0; }
+  12%  { opacity: 0.45; }
+  70%  { opacity: 0.20; }
+  100% { --sweep-turn: 360deg; opacity: 0; }
+}
+
+/* Reduced motion: disable continuous effects */
+@media (prefers-reduced-motion: reduce) {
+  .rarity-rotating-border::before { animation: none; }
+  .rarity-rim-sweep::after { animation: none; opacity: 0; }
+}
+
+
+/* ========================= */
+/* Rarity helpers             */
+/* ========================= */
+/* Soft rarity wash from bottom of a panel */
+.rarity-bg-wash {
+  background-image: linear-gradient(
+    to top,
+    rgb(var(--rarity-rgb) / 0.05),
+    transparent 70%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-blend-mode: screen;
+}
+
+/* Subtle glow applied to titles based on rarity */
+.rarity-title-glow {
+  text-shadow:
+    0 0 6px rgb(var(--rarity-rgb) / 0.35),
+    0 0 14px rgb(var(--rarity-rgb) / 0.18);
+}

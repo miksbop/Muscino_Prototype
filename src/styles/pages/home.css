@@ -1,0 +1,347 @@
+/* =========================================================
+   HOME PAGE ONLY
+   ---------------------------------------------------------
+   Styles used only by HomePage:
+   - moving cover background + reflection
+   - staged reveal behavior (.is-ready)
+   - Muscino hero title glow + sheen overlay
+   ========================================================= */
+
+/* ========================= */
+/* Home covers: stage intro  */
+/* ========================= */
+/* Stage wrapper starts hidden + shifted down.
+   React toggles .is-ready once covers are loaded. */
+
+.home-covers-stage {
+  opacity: 0;                 /* hidden pre-load */
+  inset:0;
+  transform: translateY(28px); /* slide up into place */
+  transition:
+    opacity 600ms ease,
+    transform 900ms cubic-bezier(0.16, 1, 0.3, 1); /* smooth “Apple-ish” ease */
+}
+
+/* MUST remain outside reduced-motion media query:
+   .is-ready is what reveals the stage for normal users. */
+.home-covers-stage.is-ready {
+  opacity: 1;                 /* visible */
+  transform: translateY(0);   /* final position */
+}
+
+/* Pauses motion until stage is ready, preventing “mid-cycle” jump on mount. */
+.home-covers-stage .home-cover-move-ltr {
+  animation-play-state: paused;
+}
+
+/* Once ready, allow the mover animation to run. */
+.home-covers-stage.is-ready .home-cover-move-ltr {
+  animation-play-state: running;
+}
+
+/* Reduced motion: intro tiles should not animate; they should appear in-place.
+   This targets only the “intro” tiles (first few) rather than all tiles. */
+@media (prefers-reduced-motion: reduce) {
+  .home-covers-stage .home-cover-tile-intro {
+    opacity: var(--tile-final-opacity, 0.55); /* respect context opacity */
+    transform: none;
+    animation: none;
+  }
+}
+
+
+/* Reduced motion: stage should not be hidden/animated in.
+   Users who prefer reduced motion see the covers immediately. */
+@media (prefers-reduced-motion: reduce) {
+  .home-covers-stage {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .home-covers-stage .home-cover-move-ltr {
+    animation-play-state: running; /* allow movement unless you later disable it */
+  }
+}
+
+/* ========================= */
+/* Home moving covers         */
+/* ========================= */
+/* Track is positioned absolutely at the bottom section and padded so tiles
+   don’t touch screen edges. */
+.home-cover-track {
+  position: absolute;
+  left: 0;
+  padding: 0 24px;
+  will-change: transform; /* hint for smoother motion */
+}
+
+/* The “mover” is the flex row that is actually animated.
+   It is duplicated in JSX ([...strip, ...strip]) for seamless looping. */
+.home-cover-move-ltr {
+  display: flex;
+  gap: var(--home-gap);      /* spacing between tiles */
+  will-change: transform;
+  transform: translateX(0%); /* base transform matches animation start */
+  animation: homeMoveLTR 90s linear infinite; /* slow drift */
+}
+
+/* Base tile styling: matches the app’s glass card language. */
+.home-cover-tile {
+  width: var(--home-tile);
+  height: var(--home-tile);
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25) inset;
+  opacity: 0.55;
+  filter: saturate(0.95);
+}
+
+/* Tile final opacity by context (lets reflection match its intended look).
+   This sets a CSS variable used by the intro animation’s final state. */
+.home-cover-tile { --tile-final-opacity: 0.55; }
+.home-cover-reflection .home-cover-tile { --tile-final-opacity: 0.92; }
+
+/* Intro tiles start hidden and slightly lowered.
+   Only tiles marked with .home-cover-tile-intro in JSX use this. */
+.home-covers-stage .home-cover-tile-intro {
+  opacity: 0;
+  transform: translateY(18px);
+  will-change: opacity, transform;
+}
+
+/* When stage becomes ready, intro tiles animate in with a stagger delay.
+   This is applied to the primary row only. */
+.home-covers-stage.is-ready .home-cover-row .home-cover-tile-intro {
+  animation: homeTileIn 420ms cubic-bezier(0.2, 1, 0.2, 1) both;
+  animation-delay: var(--tile-delay, 0ms); /* set per-tile inline */
+}
+
+/* Reflection intro tiles animate in slightly faster (snappier).
+   Delay can be adjusted independently. */
+.home-covers-stage.is-ready .home-cover-reflection .home-cover-tile-intro {
+  animation: homeTileIn 350ms cubic-bezier(0.2, 1, 0.2, 1) both;
+  animation-delay: calc(var(--tile-delay, 0ms) + 0ms);
+}
+
+/* Intro animation: fade + slide up to the “final” opacity for that context. */
+@keyframes homeTileIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: var(--tile-final-opacity, 0.55);
+    transform: translateY(0);
+  }
+}
+
+/* Cover motion loop.
+   With two copies of the strip rendered, translating by 50% loops seamlessly. */
+@keyframes homeMoveLTR {
+  from {
+    transform: translateX(0%);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Reduced motion: disable the continuous scrolling movement and force tiles visible. */
+@media (prefers-reduced-motion: reduce) {
+  .home-cover-move-ltr {
+    animation: none;
+    transform: translateX(0%);
+  }
+
+  /* Ensure both rows render at their final look without intro animation. */
+  .home-covers-stage .home-cover-row .home-cover-tile,
+  .home-covers-stage .home-cover-reflection .home-cover-tile {
+    opacity: var(--tile-final-opacity, 0.55);
+    transform: none;
+    animation: none;
+  }
+}
+
+/* Primary row positioning (slightly above the reflection). */
+.home-cover-row {
+  z-index: 2;
+  bottom: 70px; /* smaller = lower */
+}
+
+/* ========================= */
+/* Reflection row             */
+/* ========================= */
+/* Reflection track is flipped vertically and masked so it fades out cleanly.
+   This creates the “glass reflection floor” effect. */
+.home-cover-reflection {
+  bottom: 0px;
+  transform: scaleY(-1); /* flip vertically */
+  z-index: 1;
+
+  /* dynamic range compression so dark covers stay readable */
+  filter:
+    blur(0.6px)
+    brightness(1.08)
+    contrast(0.85)
+    saturate(0.95);
+
+  opacity: 0.32;
+
+  /* hard cutoff so it never overlaps the primary row */
+  height: var(--home-reflection-h);
+  overflow: hidden;
+
+  /* gradient fade (strong near top, fades to 0) */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.55),
+    rgba(0, 0, 0, 0.22) 58%,
+    rgba(0, 0, 0, 0)
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.55),
+    rgba(0, 0, 0, 0.22) 58%,
+    rgba(0, 0, 0, 0)
+  );
+}
+
+/* Reflection tiles are intentionally brighter and slightly “glossier”. */
+.home-cover-reflection .home-cover-tile {
+  opacity: 0.92;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.06));
+}
+
+/* A faint “glass floor band” behind reflection to help it read on dark covers. */
+.home-cover-reflection::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40px;
+  bottom: -10px;
+  pointer-events: none;
+
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.06),
+    rgba(255,255,255,0.02) 45%,
+    rgba(255,255,255,0.00)
+  );
+
+  opacity: 0.35;
+}
+
+/* ========================= */
+/* Rarity-tinted reflection   */
+/* ========================= */
+/* Adds a controlled rarity glow to the reflection tile only.
+   Uses --rarity-rgb set inline from React. */
+.home-cover-reflection .home-cover-reflection-tile {
+  position: relative;
+  box-shadow:
+    0 0 0 1px rgb(var(--rarity-rgb) / 0.22) inset,
+    0 0 18px rgb(var(--rarity-rgb) / 0.12);
+}
+
+/* Overlay tint on reflection tiles (subtle highlight + rarity gradient). */
+.home-cover-reflection-tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      140px 70px at 50% 18%,
+      rgba(255,255,255,0.18),
+      rgba(255,255,255,0.00) 65%
+    ),
+    linear-gradient(
+      to top,
+      rgb(var(--rarity-rgb) / 0.42),
+      rgb(var(--rarity-rgb) / 0.14) 42%,
+      rgba(0,0,0,0) 78%
+    );
+
+  mix-blend-mode: plus-lighter; /* brightens without muddy overlay */
+  opacity: 0.65;
+}
+
+/* Fallback for browsers without plus-lighter support. */
+@supports not (mix-blend-mode: plus-lighter) {
+  .home-cover-reflection-tint {
+    mix-blend-mode: screen;
+    opacity: 0.40;
+  }
+}
+
+/* ========================= */
+/* Home title glow + sheen    */
+/* ========================= */
+/* Base “Muscino” text styling (crisp) — applied to the outer span.
+   The sheen is a separate overlay span so the base stays sharp. */
+.muscino-title {
+  color: #60a5fa; /* Tailwind blue-400 */
+
+  /* Subtle glow stack (tuned to be present but not neon). */
+  text-shadow:
+    0 0 6px  rgba(96,165,250,0.40),
+    0 0 14px rgba(96,165,250,0.22),
+    0 0 26px rgba(96,165,250,0.12);
+}
+
+/* Sheen animation for the overlay “Muscino” text.
+   This paints a gradient across the text itself using background-clip. */
+@keyframes muscino-title-sheen {
+  0%   { background-position: -200% 0; opacity: 0; }
+  12%  { opacity: 0.45; }
+  38%  { opacity: 0.28; }
+  100% { background-position: 200% 0; opacity: 0; }
+}
+
+/* Overlay text span that renders the sheen.
+   IMPORTANT: this should be positioned absolute and have the same text content. */
+.muscino-title-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  /* Make the overlay “ink” come from the gradient instead of font color. */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  /* White highlight band sweeping across the text */
+  background-image: linear-gradient(
+    110deg,
+    rgba(255,255,255,0.00) 0%,
+    rgba(255,255,255,0.00) 42%,
+    rgba(255,255,255,0.22) 48%,
+    rgba(255,255,255,0.42) 50%,
+    rgba(255,255,255,0.22) 52%,
+    rgba(255,255,255,0.00) 58%,
+    rgba(255,255,255,0.00) 100%
+  );
+
+  background-size: 240% 100%;
+  background-position: -200% 0;
+
+  -webkit-background-clip: text;
+  background-clip: text;
+
+  mix-blend-mode: screen;
+  animation: muscino-title-sheen 4s ease-in-out infinite;
+}
+
+/* Reduced motion: disable sheen animation and fall back to normal text paint. */
+@media (prefers-reduced-motion: reduce) {
+  .muscino-title-sheen {
+    animation: none;
+    background: none;
+
+    /* Re-enables text paint so the overlay doesn't disappear entirely */
+    -webkit-text-fill-color: currentColor;
+  }
+}
