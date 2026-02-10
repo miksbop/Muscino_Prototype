@@ -7,6 +7,7 @@ import { MarqueeText } from "../components/MarqueeText";
 import { rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 
+// THIS IS MY FORK TEST
 function rarityRgb(rarity?: string) {
   switch (rarity) {
     case "Uncommon":
