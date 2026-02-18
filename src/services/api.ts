@@ -1,6 +1,7 @@
 // src/services/api.ts
 import type { OwnedSong, Rarity } from "../types/song";
 import type { Sleeve, SleeveSong } from "../types/sleeve";
+import type { AuthUser, LoginInput } from "../types/auth";
 import { MOCK_SLEEVES } from "../mock/sleeves";
 import { mockInventory as MOCK_INVENTORY } from "../mock/mockData";
 
@@ -19,6 +20,9 @@ async function fetchJson<T>(
 
 // Fallback mock state (used if backend unreachable during dev)
 let mockInventory: OwnedSong[] = [...MOCK_INVENTORY];
+
+// Session stub for frontend-only auth wiring (to be replaced by backend auth later)
+let sessionUser: AuthUser | null = null;
 
 function pickWeightedByRarity(items: SleeveSong[]): SleeveSong {
   const weight: Record<Rarity, number> = {
@@ -94,6 +98,38 @@ export const api = {
       return owned;
     }
   },
+
+  
+  async getSession(): Promise<AuthUser | null> {
+    await new Promise((r) => setTimeout(r, 120));
+    return sessionUser;
+  },
+
+  async login(input: LoginInput): Promise<AuthUser> {
+    await new Promise((r) => setTimeout(r, 220));
+
+    const username = input.username.trim();
+    if (!username || !input.password.trim()) {
+      throw new Error("Username and password are required");
+    }
+
+    sessionUser = {
+      id: `local-${username.toLowerCase()}`,
+      username,
+      displayName: username,
+      wallet: 100,
+      avatarUrl:
+        "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg",
+    };
+
+    return sessionUser;
+  },
+
+  async logout(): Promise<void> {
+    await new Promise((r) => setTimeout(r, 120));
+    sessionUser = null;
+  },
+
 
   // Dev helper: reset the in-memory mocks (no-op for backend)
   __resetMocks() {
