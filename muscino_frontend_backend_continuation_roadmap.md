@@ -121,7 +121,7 @@ The app looks "correct" at the current Windows accessibility text scaling (~139%
 - Build a scale-validation matrix for major pages (Home/Collection/Play):
   - 100%
   - 125%
-  - 139%
+  - 139% 1
   - 150%
 - Validate for each scale:
   - nav wrap/overlap
