@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../context/useAuth";
 
 export function TopNav() {
   const { user, status, isSignedIn, signOut } = useAuth();
@@ -12,7 +12,6 @@ export function TopNav() {
   return (
     <div className="relative z-50 w-full h-14 border-b border-white/10 bg-neutral-900">
       <div className="max-w-6xl mx-auto h-full px-6 flex items-center justify-between">
-
         <div className="flex items-center gap-6 text-sm text-neutral-300 min-w-0">
           <NavLink
             to="/play"
@@ -44,9 +43,7 @@ export function TopNav() {
           </NavLink>
         </div>
 
-        {/* Right side */}
-        
-          <div className="flex items-center gap-3 text-sm text-neutral-300 min-w-0">
+        <div className="flex items-center gap-3 text-sm text-neutral-300 min-w-0">
           {status === "loading" ? (
             <span className="text-neutral-400">Loading session...</span>
           ) : isSignedIn && user ? (
@@ -65,7 +62,7 @@ export function TopNav() {
                 className="w-8 h-8 rounded-full object-cover border border-white/20 bg-white/10"
               />
 
-           <button
+              <button
                 type="button"
                 onClick={() => {
                   void signOut();

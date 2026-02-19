@@ -1,18 +1,19 @@
-// src/components/SongCard.tsx
 import type { OwnedSong } from "../types/song";
+import type { SleeveSong } from "../types/sleeve";
 import { RarityPill } from "./RarityPill";
-
 import {
   rarityBorderClass,
   rarityGlowClass,
+  rarityHoverBorderClass,
+  rarityHoverOverlayClass,
   rarityRingClass,
   raritySelectedBgClass,
-  rarityHoverOverlayClass,
-  rarityHoverBorderClass,
 } from "../types/rarity";
 
+type SongCardData = OwnedSong | SleeveSong;
+
 type SongCardProps = {
-  song: OwnedSong;
+  song: SongCardData;
   selected?: boolean;
   onSelect?: () => void;
 };
@@ -47,9 +48,7 @@ export function SongCard({ song, selected = false, onSelect }: SongCardProps) {
             ].join(" "),
       ].join(" ")}
     >
-      {song.rarity === "Legendary" && selected && (
-        <div className="muscino-legendary-sheen" />
-      )}
+      {song.rarity === "Legendary" && selected && <div className="muscino-legendary-sheen" />}
 
       <div className="relative z-10">
         {hasCover ? (
@@ -66,8 +65,7 @@ export function SongCard({ song, selected = false, onSelect }: SongCardProps) {
         )}
 
         <div className="font-medium leading-5 truncate">{song.title}</div>
-<div className="text-sm text-neutral-300 leading-5 truncate">{song.artist}</div>
-
+        <div className="text-sm text-neutral-300 leading-5 truncate">{song.artist}</div>
 
         <div className="mt-1">
           <RarityPill rarity={song.rarity} />

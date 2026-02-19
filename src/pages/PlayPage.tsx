@@ -1,56 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import GlassPanel from "../components/GlassPanel";
 import { SongCard } from "../components/SongCard";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { api } from "../services/api";
-import type { Sleeve } from "../types/sleeve";
 import type { OwnedSong } from "../types/song";
+import type { Sleeve } from "../types/sleeve";
 
-import "../styles/pages/play.css";
-
-//  Sleeve art
 import sleevePop from "../pictures/Pictures/sleeve_pop.png";
 import sleevePopOpen from "../pictures/Pictures/sleeve_pop_open.png";
 import sleeveRock from "../pictures/Pictures/sleeve_rock.png";
 import sleeveRockOpen from "../pictures/Pictures/sleeve_rock_open.png";
 
 type OpenState = "idle" | "rolling" | "revealed";
-
-// For now: only Pop + Rock
 type PlayGenre = "Pop" | "Rock";
+
 const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock"];
 
-const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string; label: string }> = {
-  Pop: { closed: sleevePop, open: sleevePopOpen, label: "Pop Sleeve" },
-  Rock: { closed: sleeveRock, open: sleeveRockOpen, label: "Rock Sleeve" },
+const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
+  Pop: { closed: sleevePop, open: sleevePopOpen },
+  Rock: { closed: sleeveRock, open: sleeveRockOpen },
 };
 
-
-// Reel tuning (must match CSS animation duration)
+// Must match CSS reel animation duration.
 const REEL_DURATION_MS = 4200;
 
-// Build a long “CSGO-style” strip that lands on result at finalIndex
 function buildReel(items: OwnedSong[], result: OwnedSong) {
-  // fallback if sleeve has tiny contents
   const pool = items.length ? items : [result];
-
-  // total tiles in the strip
   const total = 23;
-
-  // where the reel should stop (center marker)
-  // higher = more travel = more suspense
   const finalIndex = 15;
 
   const tiles: OwnedSong[] = [];
-
-  for (let i = 0; i < total; i++) {
-    // place the real result exactly at finalIndex
-    if (i === finalIndex) {
+  for (let index = 0; index < total; index++) {
+    if (index === finalIndex) {
       tiles.push(result);
       continue;
     }
 
-    // pick “decoys” from pool (random)
     const pick = pool[Math.floor(Math.random() * pool.length)];
     tiles.push(pick);
   }
@@ -74,25 +60,9 @@ export function PlayPage() {
   const [rolled, setRolled] = useState<OwnedSong | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
-  // reel state
   const [reelTiles, setReelTiles] = useState<OwnedSong[]>([]);
   const [finalIndex, setFinalIndex] = useState(0);
   const [reelTick, setReelTick] = useState(0);
-
-  const RARITY_ORDER: Record<string, number> = {
-  Legendary: 5,
-  Epic: 4,
-  Rare: 3,
-  Uncommon: 2,
-  Common: 1,
-};
-
-function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
-  return [...arr].sort(
-    (a, b) => (RARITY_ORDER[b.rarity ?? "Common"] ?? 1) - (RARITY_ORDER[a.rarity ?? "Common"] ?? 1)
-  );
-}
-
 
   useEffect(() => {
     let cancelled = false;
@@ -109,26 +79,25 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
 
     return () => {
       cancelled = true;
-      timersRef.current.forEach((t) => window.clearTimeout(t));
+      timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       timersRef.current = [];
     };
   }, []);
 
   const sleevesForGenre = useMemo(
-    () => sleeves.filter((s) => s.genre === genre),
-    [sleeves, genre]
+    () => sleeves.filter((sleeve) => sleeve.genre === genre),
+    [sleeves, genre],
   );
 
   const current = sleevesForGenre[0] ?? null;
-
   const canPrev = genreIndex > 0;
   const canNext = genreIndex < PLAY_GENRES.length - 1;
 
   function runSwitchAnimation() {
-    setSwitchTick((t) => t + 1);
+    setSwitchTick((tick) => tick + 1);
     setPeekOpen(false);
 
-    timersRef.current.forEach((t) => window.clearTimeout(t));
+    timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current = [];
 
     timersRef.current.push(window.setTimeout(() => setPeekOpen(true), 180));
@@ -136,17 +105,16 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
 
   function goPrev() {
     if (!canPrev) return;
-    setGenreIndex((i) => i - 1);
+    setGenreIndex((index) => index - 1);
   }
 
   function goNext() {
     if (!canNext) return;
-    setGenreIndex((i) => i + 1);
+    setGenreIndex((index) => index + 1);
   }
 
   useEffect(() => {
     runSwitchAnimation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genreIndex]);
 
   function closeOverlay() {
@@ -155,10 +123,9 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
     setRolled(null);
     setOpenError(null);
 
-    // reset reel
     setReelTiles([]);
     setFinalIndex(0);
-    setReelTick((t) => t + 1);
+    setReelTick((tick) => tick + 1);
   }
 
   async function handleOpen() {
@@ -169,53 +136,41 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
     setRolled(null);
     setOpenError(null);
 
-    // stop any prior timers
-    timersRef.current.forEach((t) => window.clearTimeout(t));
+    timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current = [];
 
     try {
-      //  we already know the result (mock API), we just delay the reveal
       const owned = await api.openSleeve(current.id);
-
-      // build reel based on sleeve contents (decoys)
       const pool = (current.contents ?? []) as OwnedSong[];
       const built = buildReel(pool, owned);
 
       setReelTiles(built.tiles);
       setFinalIndex(built.finalIndex);
+      setReelTick((tick) => tick + 1);
 
-      // restart the CSS animation by changing key
-      setReelTick((t) => t + 1);
-
-      // reveal after the reel finishes
       timersRef.current.push(
         window.setTimeout(() => {
           setRolled(owned);
           setOpenState("revealed");
-        }, REEL_DURATION_MS)
+        }, REEL_DURATION_MS),
       );
-    } catch (e) {
+    } catch (error) {
       setOpenState("idle");
-      setOpenError(e instanceof Error ? e.message : "Failed to open sleeve");
+      setOpenError(error instanceof Error ? error.message : "Failed to open sleeve");
     }
   }
 
   const art = SLEEVE_ART[genre];
-
   const previewA = current?.contents?.[0] ?? null;
   const previewB = current?.contents?.[1] ?? null;
 
   return (
     <div className={["play-page h-full text-white", genre === "Pop" ? "is-pop" : "is-rock"].join(" ")}>
-      {/* Full-page animated background */}
       <div className="play-bg" aria-hidden="true">
         <div className={["play-bg-layer play-bg-pop", genre === "Pop" ? "is-active" : ""].join(" ")} />
         <div className={["play-bg-layer play-bg-rock", genre === "Rock" ? "is-active" : ""].join(" ")} />
       </div>
 
-      {/* ===========================
-          Opening overlay (page-only)
-         =========================== */}
       {overlayOpen && (
         <div className="muscino-opening-overlay" role="dialog" aria-modal="true">
           <div className="muscino-opening-backdrop" onClick={closeOverlay} />
@@ -237,26 +192,21 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
                 <div className="flex flex-col items-center gap-5 py-6">
                   <div className="text-3xl md:text-4xl font-medium text-white/90">Opening…</div>
 
-                  {/*  BIGGER + SLOWER reel */}
                   <div className="muscino-reel" aria-hidden="true">
                     <div className="muscino-reel-window">
                       <div className="muscino-reel-marker" />
                       <div
                         key={`reel-${reelTick}`}
                         className="muscino-reel-track"
-                        style={
-                          {
-                            ["--final-i" as any]: finalIndex,
-                          } as any
-                        }
+                        style={{ ["--final-i" as const]: finalIndex } as CSSProperties}
                       >
-                        {reelTiles.map((s, i) => {
-                          const delta = Math.abs(i - finalIndex);
-                          const d = delta >= 3 ? 3 : delta; // clamp 0..3
+                        {reelTiles.map((song, index) => {
+                          const delta = Math.abs(index - finalIndex);
+                          const clampedDelta = delta >= 3 ? 3 : delta;
 
                           return (
-                            <div key={`${s.id}-${i}`} className="muscino-reel-tile" data-delta={d}>
-                              {s.coverUrl ? <img src={s.coverUrl} alt="" draggable={false} /> : null}
+                            <div key={`${song.id}-${index}`} className="muscino-reel-tile" data-delta={clampedDelta}>
+                              {song.coverUrl ? <img src={song.coverUrl} alt="" draggable={false} /> : null}
                             </div>
                           );
                         })}
@@ -268,9 +218,7 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="text-3xl md:text-4xl font-medium text-white/90">
-                    {genre} Sleeve Opened!
-                  </div>
+                  <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
 
                   <div className="w-[min(520px,90vw)] aspect-square rounded-2xl overflow-hidden border border-white/10 bg-white/5">
                     {rolled?.coverUrl ? (
@@ -307,9 +255,7 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
       )}
 
       <div className="relative max-w-6xl mx-auto px-6 pt-6 pb-6 h-full flex flex-col min-h-0">
-        {/* Vertical side label */}
-<div className="play-side-label">Play / / /</div>
-
+        <div className="play-side-label">Play / / /</div>
 
         {loading ? (
           <div className="flex-1 grid place-items-center min-h-0">
@@ -317,16 +263,13 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
-            {/* LEFT */}
             <GlassPanel
               key={`play-left-${genre}-${switchTick}`}
               className={[
                 "col-span-12 md:col-span-4 p-4 h-full min-h-0 overflow-hidden flex flex-col",
                 "rarity-rotating-border rarity-rim-sweep rarity-bg-wash",
               ].join(" ")}
-              style={{
-                ["--rarity-rgb" as any]: genre === "Pop" ? "96 165 250" : "255 110 160",
-              }}
+              style={{ ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : "255 110 160" } as CSSProperties}
             >
               <div className="play-left-header">
                 <div className="play-left-title">Sleeve Collections</div>
@@ -387,23 +330,18 @@ function sortByRarity<T extends { rarity?: string }>(arr: T[]) {
               </div>
             </GlassPanel>
 
-
-            {/* RIGHT */}
             <GlassPanel className="col-span-12 md:col-span-8 p-4 h-full min-h-0 overflow-hidden flex flex-col">
-              
               <div className="text-white/60 mb-1 text-small">Contents:</div>
 
               <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-6 muscino-scroll">
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
-                  {(current?.contents ?? []).map((s) => (
-                    <SongCard key={s.id} song={s as any} selected={false} onSelect={() => {}} />
+                  {(current?.contents ?? []).map((song) => (
+                    <SongCard key={song.id} song={song} selected={false} onSelect={() => {}} />
                   ))}
                 </div>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-3">
-              
-
                 <button
                   className="px-4 py-1 rounded-xl bg-blue-500/70 border border-blue-300/20 hover:bg-blue-500/80 transition text-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!current}

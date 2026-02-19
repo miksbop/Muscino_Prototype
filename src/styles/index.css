@@ -9,11 +9,8 @@
    Page-specific selectors belong in /styles/pages/*
    ========================================================= */
 
-/* ========================= */
-/* App shell scroll locking  */
-/* ========================= */
-/* Locks outer page scrolling for the “app shell” layout.
-   Inner panels (ex: Collection grid) handle scrolling instead. */
+/* Locks outer page scrolling for the app shell.
+   Scrollable sections are handled by inner page panels. */
 html,
 body {
   height: 100%;
@@ -21,57 +18,29 @@ body {
   font-size: calc(16px * var(--ui-scale));
 }
 
-
-/* ========================= */
-/* Forced UI scale (Portfolio lock)
-   -------------------------
-   Goal: Make the app LOOK like your dev environment at 139% Windows text size,
-   regardless of user OS text scaling (100%, 125%, etc.).
-
-   How it works:
-   - We scale the entire UI with transform: scale(...)
-   - Then "compensate" layout size so it still fits the viewport:
-       width: 100% / scale
-       height: 100% / scale
-
-   Usage:
-   - Wrap your routed content in a container with class .muscino-ui-scale
-     (you’ll do this in AppLayout.tsx, not here).
-   - Adjust --ui-scale if you want a different locked look.
-   ========================= */
-
 :root {
-  /* 🎛️ Portfolio baseline scale.
-     Set to 1.39 if you truly want the “139% look” as your baked-in baseline.
-     You can later expose this as a user setting. */
+  /* Global scale token. Keeping this as a variable allows tuning while
+     preserving component-level `rem` usage and avoiding layout rewrites. */
   --ui-scale: 1.44;
 
   --topnav-h: 3.5rem;
   --page-pad: 1.5rem;
 
-  --home-tile: 300px;   /* bump from 220 -> 260 */
+  --home-tile: 300px;
   --home-gap: 18px;
   --home-reflection-h: 160px;
 }
 
-/* The scaled UI wrapper.
-   IMPORTANT:
-   - width/height compensation is what prevents the scaled UI from clipping.
-   - transform-origin top-left ensures the app scales outward from the corner predictably.
-*/
-.muscino-ui-scale { 
+/* Compatibility wrapper for experiments.
+   Currently inert by design (no transform/resize behavior). */
+.muscino-ui-scale {
   transform: none;
   width: auto;
   height: auto;
   overflow: visible;
 }
 
-
-/* ========================= */
-/* Reduced motion safety     */
-/* ========================= */
-/* Nothing required here for scaling specifically.
-   Keep reduced-motion rules in their respective page/component files. */
 @media (prefers-reduced-motion: reduce) {
-  /* Intentionally empty: scaling does not animate. */
+  /* Intentionally empty at global level.
+     Motion rules live in page/component stylesheets. */
 }

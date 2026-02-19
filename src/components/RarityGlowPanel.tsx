@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import GlassPanel from "./GlassPanel";
 import type { Rarity } from "../types/song";
-
 
 type Props = {
   children: ReactNode;
@@ -18,23 +17,15 @@ const RARITY_RGB: Record<Rarity, string> = {
 };
 
 export function RarityGlowPanel({ children, rarity, className = "" }: Props) {
-  const rgb =
-    rarity && RARITY_RGB[rarity] ? RARITY_RGB[rarity] : "255 255 255";
+  const rgb = rarity && RARITY_RGB[rarity] ? RARITY_RGB[rarity] : "255 255 255";
 
   return (
     <div
-      className={[
-        "relative overflow-visible rounded-2xl", // ✅ important
-        rarity ? "rarity-rotating-border" : "",
-        className,
-      ].join(" ")}
-      style={
-        {
-          ["--rarity-rgb" as any]: rgb,
-        } as React.CSSProperties
-      }
+      className={["relative overflow-visible rounded-2xl", rarity ? "rarity-rotating-border" : "", className].join(
+        " ",
+      )}
+      style={{ ["--rarity-rgb" as const]: rgb } as CSSProperties}
     >
-      {/* ✅ keep the actual glass ABOVE the border ring */}
       <GlassPanel className="relative z-10 h-full">{children}</GlassPanel>
     </div>
   );

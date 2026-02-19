@@ -1,34 +1,22 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import type { OwnedSong } from "../types/song";
 import { api } from "../services/api";
 import GlassPanel from "../components/GlassPanel";
-
-// Keep it explicit and readable (no rarity logic in CSS)
-function rarityRgb(rarity?: string) {
-  switch (rarity) {
-    case "Uncommon":
-      return "52 211 153";
-    case "Rare":
-      return "56 189 248";
-    case "Epic":
-      return "167 139 250";
-    case "Legendary":
-      return "251 191 36";
-    default:
-      return "255 255 255";
-  }
-}
+import { rarityRgb } from "../types/rarity";
 
 type CoverTile = {
   src: string;
-  rarity?: string;
-  rgb: string; // precomputed for styling hi
+  rarity?: OwnedSong["rarity"];
+  rgb: string;
 };
 
 function buildCoverStrip(items: CoverTile[], minTiles: number) {
   if (items.length === 0) return [];
+
   const out: CoverTile[] = [];
   while (out.length < minTiles) out.push(...items);
+
   return out.slice(0, minTiles);
 }
 
@@ -55,8 +43,8 @@ export default function HomePage() {
   }, []);
 
   const strip = useMemo<CoverTile[]>(() => {
-    // Dedup by cover URL (keep the highest rarity if duplicates exist)
-    const rarityRank: Record<string, number> = {
+    // Dedup by cover URL (keep the highest rarity if duplicates exist).
+    const rarityRank: Record<OwnedSong["rarity"], number> = {
       Legendary: 5,
       Epic: 4,
       Rare: 3,
@@ -66,25 +54,27 @@ export default function HomePage() {
 
     const bestByCover = new Map<string, OwnedSong>();
 
-    for (const s of songs) {
-      if (!s.coverUrl) continue;
-      const existing = bestByCover.get(s.coverUrl);
+    for (const song of songs) {
+      if (!song.coverUrl) continue;
+
+      const existing = bestByCover.get(song.coverUrl);
       if (!existing) {
-        bestByCover.set(s.coverUrl, s);
+        bestByCover.set(song.coverUrl, song);
         continue;
       }
-      const a = rarityRank[s.rarity] ?? 0;
-      const b = rarityRank[existing.rarity] ?? 0;
-      if (a > b) bestByCover.set(s.coverUrl, s);
+
+      const nextRank = rarityRank[song.rarity] ?? 0;
+      const existingRank = rarityRank[existing.rarity] ?? 0;
+      if (nextRank > existingRank) bestByCover.set(song.coverUrl, song);
     }
 
-    const tiles: CoverTile[] = Array.from(bestByCover.values()).map((s) => ({
-      src: s.coverUrl,
-      rarity: s.rarity,
-      rgb: rarityRgb(s.rarity),
+    const tiles: CoverTile[] = Array.from(bestByCover.values()).map((song) => ({
+      src: song.coverUrl,
+      rarity: song.rarity,
+      rgb: rarityRgb(song.rarity),
     }));
 
-    // If small inventory, repeat to keep motion full
+    // If inventory is small, repeat to keep motion full.
     return buildCoverStrip(tiles, 18);
   }, [songs]);
 
@@ -92,8 +82,6 @@ export default function HomePage() {
 
   return (
     <div className="relative h-full bg-neutral-950 text-white overflow-hidden">
-
-      {/* Background moving covers */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/55 to-black/80" />
 
@@ -107,28 +95,25 @@ export default function HomePage() {
                 ready ? "is-ready" : "",
               ].join(" ")}
             >
-              {/* PRIMARY ROW */}
               <div className="home-cover-track home-cover-row">
                 <div className="home-cover-move-ltr">
-                  {[...strip, ...strip].map((t, i) => {
-                    const introIndex = i % strip.length; // 0..strip.length-1
-                    const intro = introIndex < 8; // only first 6 animate
+                  {[...strip, ...strip].map((tile, index) => {
+                    const introIndex = index % strip.length;
+                    const intro = introIndex < 8;
+
                     return (
                       <div
-                        key={`${t.src}-${i}`}
-                        className={[
-                          "home-cover-tile",
-                          intro ? "home-cover-tile-intro" : "",
-                        ].join(" ")}
+                        key={`${tile.src}-${index}`}
+                        className={["home-cover-tile", intro ? "home-cover-tile-intro" : ""].join(" ")}
                         style={
                           intro
-                            ? { ["--tile-delay" as any]: `${introIndex * 45}ms` }
+                            ? ({ ["--tile-delay" as const]: `${introIndex * 45}ms` } as CSSProperties)
                             : undefined
                         }
                         aria-hidden="true"
                       >
                         <img
-                          src={t.src}
+                          src={tile.src}
                           alt=""
                           className="h-full w-full object-cover"
                           draggable={false}
@@ -140,34 +125,27 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* REFLECTION ROW (rarity tinted) */}
-              <div
-                className="home-cover-track home-cover-reflection"
-                aria-hidden="true"
-              >
+              <div className="home-cover-track home-cover-reflection" aria-hidden="true">
                 <div className="home-cover-move-ltr">
-                  {[...strip, ...strip].map((t, i) => {
-                    const introIndex = i % strip.length;
+                  {[...strip, ...strip].map((tile, index) => {
+                    const introIndex = index % strip.length;
                     const intro = introIndex < 8;
+
                     return (
                       <div
-                        key={`ref-${t.src}-${i}`}
+                        key={`ref-${tile.src}-${index}`}
                         className={[
                           "home-cover-tile",
                           "home-cover-reflection-tile",
                           intro ? "home-cover-tile-intro" : "",
                         ].join(" ")}
-                        style={{
-                          ["--rarity-rgb" as any]: t.rgb,
-                          ...(intro
-                            ? {
-                                ["--tile-delay" as any]: `${introIndex * 90}ms`,
-                              }
-                            : {}),
-                        }}
+                        style={({
+                          ["--rarity-rgb" as const]: tile.rgb,
+                          ...(intro ? { ["--tile-delay" as const]: `${introIndex * 90}ms` } : {}),
+                        } as CSSProperties)}
                       >
                         <img
-                          src={t.src}
+                          src={tile.src}
                           alt=""
                           className="h-full w-full object-cover"
                           draggable={false}
@@ -187,20 +165,16 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Foreground content */}
       <div className="relative max-w-6xl mx-auto px-6 pt-16 mt-1">
         <div className="text-center">
           <h1 className="text-5xl md:text-6xl font-semibold tracking-tight">
             Welcome to{" "}
             <span className="muscino-title relative inline-block">
+              Muscino
+              <span className="muscino-title-sheen" aria-hidden="true">
                 Muscino
-  <span className="muscino-title-sheen" aria-hidden="true">
-    Muscino
-  </span>
-</span>
-
-
-
+              </span>
+            </span>
           </h1>
 
           <p className="mt-4 text-2xl md:text-3xl text-white/85">
@@ -208,11 +182,6 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="absolute right-6 top-6 text-right text-white/70 text-sm">
-          <div></div>
-        </div>
-
-        {/* No loading UI on home. Only show empty state once loaded. */}
         <div className="mt-10 flex justify-center">
           {!loading && songs.length === 0 ? (
             <GlassPanel className="px-6 py-5 text-white/70">

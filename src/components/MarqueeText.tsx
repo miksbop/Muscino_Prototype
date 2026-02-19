@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 
 type MarqueeTextProps = {
   text: string;
@@ -11,7 +12,7 @@ export function MarqueeText({
   text,
   className = "",
   speedPxPerSec = 28,
-  delayMs = 1200, // ✅ delay before scrolling starts
+  delayMs = 1200,
 }: MarqueeTextProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textRef = useRef<HTMLDivElement | null>(null);
@@ -19,7 +20,7 @@ export function MarqueeText({
   const [needsMarquee, setNeedsMarquee] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
 
-  const measure = () => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
     const inner = textRef.current;
     if (!container || !inner) return;
@@ -31,45 +32,50 @@ export function MarqueeText({
     setNeedsMarquee(overflow);
 
     if (overflow) {
-      const distance = textW + 48; // gap
+      const distance = textW + 48;
       setDurationSec(distance / speedPxPerSec);
     }
-  };
-
-  useLayoutEffect(() => {
-    measure();
-  }, [text]);
+  }, [text, speedPxPerSec]);
 
   useEffect(() => {
-    const onResize = () => measure();
+    const onResize = () => {
+      const container = containerRef.current;
+      const inner = textRef.current;
+      if (!container || !inner) return;
+
+      const containerW = container.clientWidth;
+      const textW = inner.scrollWidth;
+      const overflow = textW > containerW + 2;
+      setNeedsMarquee(overflow);
+
+      if (overflow) {
+        const distance = textW + 48;
+        setDurationSec(distance / speedPxPerSec);
+      }
+    };
+
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, []);
+  }, [speedPxPerSec]);
 
   return (
     <div
       ref={containerRef}
       className={[
         "relative w-full min-w-0 overflow-hidden whitespace-nowrap leading-tight",
-        // ✅ Fade mask on edges (webkit + standard)
         "muscino-marquee-mask-right",
         className,
       ].join(" ")}
       style={
         needsMarquee
           ? ({
-              ["--marquee-duration" as any]: `${durationSec}s`,
-              ["--marquee-delay" as any]: `${delayMs}ms`,
-            } as React.CSSProperties)
+              ["--marquee-duration" as const]: `${durationSec}s`,
+              ["--marquee-delay" as const]: `${delayMs}ms`,
+            } as CSSProperties)
           : undefined
       }
     >
-      <div
-        className={[
-          "inline-block",
-          needsMarquee ? "muscino-marquee" : "",
-        ].join(" ")}
-      >
+      <div className={["inline-block", needsMarquee ? "muscino-marquee" : ""].join(" ")}>
         <div ref={textRef} className="inline-block pr-12">
           {text}
         </div>

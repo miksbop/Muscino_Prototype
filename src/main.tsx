@@ -2,12 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
+import { AuthProvider } from "./context/AuthContext";
 import { AppLayout } from "./layouts/AppLayout";
 import { CollectionPage } from "./pages/CollectionPage";
 import HomePage from "./pages/HomePage";
 import { PlayPage } from "./pages/PlayPage";
 import { LoginPage } from "./pages/LoginPage";
-import { AuthProvider } from "./context/AuthContext";
 
 import "./styles/index.css";            // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
 import "./styles/shared/ui.css";        // shared utilities (new drawer)

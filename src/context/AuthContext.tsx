@@ -1,23 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { api } from "../services/api";
+import { AuthContext } from "./auth-context";
+import type { AuthContextValue } from "./auth-context";
 import type { AuthUser, LoginInput } from "../types/auth";
-
-type AuthStatus = "loading" | "ready";
-
-type AuthContextValue = {
-  user: AuthUser | null;
-  status: AuthStatus;
-  isSignedIn: boolean;
-  signIn: (input: LoginInput) => Promise<void>;
-  signOut: () => Promise<void>;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [status, setStatus] = useState<AuthStatus>("loading");
+  const [status, setStatus] = useState<"loading" | "ready">("loading");
 
   useEffect(() => {
     let cancelled = false;
@@ -58,12 +48,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
-  }
-  return ctx;
 }
