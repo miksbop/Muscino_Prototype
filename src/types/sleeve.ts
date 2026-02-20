@@ -1,6 +1,6 @@
 import type { Song, Rarity } from "./song";
 
-export type SleeveGenre = "Pop" | "Rock" | "Indie";
+export type SleeveGenre = "Pop" | "Rock" | "Indie" | "Rap";
 
 /**
  * Sleeve content is a song + drop metadata.
@@ -14,7 +14,7 @@ export type SleeveSong = Song & {
 export type Sleeve = {
   id: string;
   name: string;              // "Pop Sleeve"
-  genre: SleeveGenre;        // Pop/Rock/Indie
+  genre: SleeveGenre;        // Pop/Rock/Indie/Rap
   cost: number;              // 20
   contents: SleeveSong[];    // what can drop
   refreshedWeekly?: boolean; // optional UI text

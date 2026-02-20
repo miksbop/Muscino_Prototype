@@ -13,13 +13,15 @@ import sleeveRock from "../pictures/Pictures/sleeve_rock.png";
 import sleeveRockOpen from "../pictures/Pictures/sleeve_rock_open.png";
 
 type OpenState = "idle" | "rolling" | "revealed";
-type PlayGenre = "Pop" | "Rock";
+type PlayGenre = "Pop" | "Rock" | "Rap";
 
-const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock"];
+const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock", "Rap"];
 
 const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
   Pop: { closed: sleevePop, open: sleevePopOpen },
   Rock: { closed: sleeveRock, open: sleeveRockOpen },
+  // TODO: add dedicated Rap sleeve art asset.
+  Rap: { closed: sleeveRock, open: sleeveRockOpen },
 };
 
 // Must match CSS reel animation duration.
@@ -168,7 +170,7 @@ export function PlayPage() {
     <div className={["play-page h-full text-white", genre === "Pop" ? "is-pop" : "is-rock"].join(" ")}>
       <div className="play-bg" aria-hidden="true">
         <div className={["play-bg-layer play-bg-pop", genre === "Pop" ? "is-active" : ""].join(" ")} />
-        <div className={["play-bg-layer play-bg-rock", genre === "Rock" ? "is-active" : ""].join(" ")} />
+        <div className={["play-bg-layer play-bg-rock", genre !== "Pop" ? "is-active" : ""].join(" ")} />
       </div>
 
       {overlayOpen && (
@@ -269,7 +271,7 @@ export function PlayPage() {
                 "col-span-12 md:col-span-4 p-4 h-full min-h-0 overflow-hidden flex flex-col",
                 "rarity-rotating-border rarity-rim-sweep rarity-bg-wash",
               ].join(" ")}
-              style={{ ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : "255 110 160" } as CSSProperties}
+              style={{ ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : genre === "Rap" ? "255 215 64" : "255 110 160" } as CSSProperties}
             >
               <div className="play-left-header">
                 <div className="play-left-title">Sleeve Collections</div>
