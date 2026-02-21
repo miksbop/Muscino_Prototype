@@ -45,6 +45,17 @@ class SleeveSong(models.Model):
         return f"{self.song} in {self.sleeve} ({self.rarity})"
 
 
+class Profile(models.Model):
+    """Simple profile attached to Django User to store display name, wallet, and avatar."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
+    display_name = models.CharField(max_length=200, blank=True)
+    wallet = models.IntegerField(default=100)
+    avatar_url = models.CharField(max_length=1000, blank=True, null=True)
+
+    def __str__(self):
+        return f"Profile for {self.user.username}"
+
+
 class OwnedSong(models.Model):
     song = models.ForeignKey(Song, on_delete=models.CASCADE)
     rarity = models.CharField(max_length=50, choices=RARITY_CHOICES)
@@ -59,3 +70,21 @@ class OwnedSong(models.Model):
 
     def __str__(self):
         return f"Owned {self.song} ({self.rarity})"
+
+
+# Ensure a Profile exists for each User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth import get_user_model
+
+
+@receiver(post_save, sender=get_user_model())
+def create_or_update_profile(sender, instance, created, **kwargs):
+    if created:
+        Profile.objects.create(user=instance, display_name=instance.username)
+    else:
+        # ensure profile exists on subsequent saves in case migrations create users
+        try:
+            instance.profile
+        except Profile.DoesNotExist:
+            Profile.objects.create(user=instance, display_name=instance.username)

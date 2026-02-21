@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login, logout
 from .models import Sleeve, SleeveSong, OwnedSong, Song
 from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer
 
@@ -69,9 +70,42 @@ def open_sleeve(request, sleeve_id):
             chosen = item
             break
 
-    owner = None
-    if request.user and request.user.is_authenticated:
-        owner = request.user
-    owned = OwnedSong.objects.create(song=chosen.song, rarity=chosen.rarity, owner=owner)
+    # Require authentication for opening a sleeve (dev-safe default).
+    if not (request.user and request.user.is_authenticated):
+        return Response({'detail': 'authentication required to open sleeve'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    owned = OwnedSong.objects.create(song=chosen.song, rarity=chosen.rarity, owner=request.user)
     serializer = OwnedSongSerializer(owned)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def auth_login(request):
+    data = request.data
+    username = data.get('username')
+    password = data.get('password')
+    if not username or not password:
+        return Response({'detail': 'username and password required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = authenticate(request, username=username, password=password)
+    if user is None:
+        return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    login(request, user)
+    serializer = UserSerializer(user)
+    return Response({'user': serializer.data})
+
+
+@api_view(['GET'])
+def auth_session(request):
+    if request.user and request.user.is_authenticated:
+        serializer = UserSerializer(request.user)
+        return Response({'user': serializer.data})
+    return Response({'user': None})
+
+
+@api_view(['POST'])
+def auth_logout(request):
+    logout(request)
+    # clear session cookie on client side; server responds OK
+    return Response({'ok': True}, status=status.HTTP_200_OK)

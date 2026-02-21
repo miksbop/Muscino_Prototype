@@ -51,6 +51,28 @@ class OwnedSongSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    displayName = serializers.SerializerMethodField()
+    wallet = serializers.SerializerMethodField()
+    avatarUrl = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username']
+        fields = ['id', 'username', 'displayName', 'wallet', 'avatarUrl']
+
+    def get_displayName(self, obj):
+        try:
+            return obj.profile.display_name or obj.username
+        except Exception:
+            return obj.username
+
+    def get_wallet(self, obj):
+        try:
+            return obj.profile.wallet
+        except Exception:
+            return 0
+
+    def get_avatarUrl(self, obj):
+        try:
+            return obj.profile.avatar_url
+        except Exception:
+            return None
