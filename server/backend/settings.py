@@ -78,6 +78,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Allow all CORS origins for local dev
 CORS_ALLOW_ALL_ORIGINS = True
 
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'muscino-spotify-cache',
+    }
+}
+
 REST_FRAMEWORK = {
     # keep defaults for now; when adding auth swap in Token/JWT as desired
 }
