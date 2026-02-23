@@ -5,10 +5,19 @@ import type { OwnedSong, Rarity } from "../types/song";
 import type { Sleeve, SleeveSong } from "../types/sleeve";
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, init);
+  const res = await fetch(input, {
+    ...init,
+    credentials: "include", // Required for session cookies
+  });
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Request failed ${res.status} ${res.statusText}: ${text}`);
+    let detail = "";
+    try {
+      const data = await res.json();
+      detail = data.detail || data.message || "";
+    } catch {
+      detail = await res.text().catch(() => "");
+    }
+    throw new Error(detail || `Request failed ${res.status} ${res.statusText}`);
   }
   return (await res.json()) as T;
 }
@@ -17,9 +26,6 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Fallback mock state (used if backend unreachable during dev)
 let mockInventory: OwnedSong[] = [...MOCK_INVENTORY];
-
-// Frontend-only auth session stub (replace with backend auth endpoints).
-let sessionUser: AuthUser | null = null;
 
 function pickWeightedByRarity(items: SleeveSong[]): SleeveSong {
   const weightByRarity: Record<Rarity, number> = {
@@ -90,34 +96,37 @@ export const api = {
   },
 
   async getSession(): Promise<AuthUser | null> {
-    await delay(120);
-    return sessionUser;
+    try {
+      const data = await fetchJson<{ user: AuthUser | null }>("/api/auth/session/");
+      return data.user;
+    } catch {
+      return null;
+    }
   },
 
   async login(input: LoginInput): Promise<AuthUser> {
-    await delay(220);
+    const data = await fetchJson<{ user: AuthUser }>("/api/auth/login/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return data.user;
+  },
 
-    const username = input.username.trim();
-    const password = input.password.trim();
-    if (!username || !password) {
-      throw new Error("Username and password are required");
-    }
-
-    sessionUser = {
-      id: `local-${username.toLowerCase()}`,
-      username,
-      displayName: username,
-      wallet: 100,
-      avatarUrl:
-        "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg",
-    };
-
-    return sessionUser;
+  async register(input: LoginInput): Promise<AuthUser> {
+    const data = await fetchJson<{ user: AuthUser }>("/api/auth/register/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return data.user;
   },
 
   async logout(): Promise<void> {
-    await delay(120);
-    sessionUser = null;
+    await fetch("/api/auth/logout/", {
+      method: "POST",
+      credentials: "include",
+    });
   },
 
   __resetMocks() {

@@ -1,5 +1,6 @@
 import random
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -34,8 +35,8 @@ def sleeves_list(request):
 
 @api_view(['GET'])
 def inventory_list(request):
-    # If authenticated, return only the user's inventory. Otherwise, support ?owner=username to view others.
-    if request.user and request.user.is_authenticated:
+    # If authenticated, return only the user's inventory.
+    if request.user.is_authenticated:
         items = OwnedSong.objects.filter(owner=request.user).select_related('song').order_by('-obtained_at')
     else:
         username = request.query_params.get('owner')
@@ -43,7 +44,7 @@ def inventory_list(request):
             user = get_object_or_404(User, username=username)
             items = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
         else:
-            items = OwnedSong.objects.select_related('song', 'owner').order_by('-obtained_at')
+            items = []
 
     serializer = OwnedSongSerializer(items, many=True)
     return Response(serializer.data)
@@ -70,13 +71,39 @@ def open_sleeve(request, sleeve_id):
             chosen = item
             break
 
-    # Require authentication for opening a sleeve (dev-safe default).
-    if not (request.user and request.user.is_authenticated):
+    # Require authentication for opening a sleeve.
+    if not request.user.is_authenticated:
         return Response({'detail': 'authentication required to open sleeve'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile = request.user.profile
+    if profile.wallet < sleeve.cost:
+        return Response({'detail': 'not enough money in wallet'}, status=status.HTTP_400_BAD_REQUEST)
+
+    profile.wallet -= sleeve.cost
+    profile.save()
 
     owned = OwnedSong.objects.create(song=chosen.song, rarity=chosen.rarity, owner=request.user)
     serializer = OwnedSongSerializer(owned)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def auth_register(request):
+    data = request.data
+    username = data.get('username')
+    password = data.get('password')
+    email = data.get('email', '')
+
+    if not username or not password:
+        return Response({'detail': 'username and password required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if User.objects.filter(username=username).exists():
+        return Response({'detail': 'username already taken'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = User.objects.create_user(username=username, password=password, email=email)
+    login(request, user)
+    serializer = UserSerializer(user)
+    return Response({'user': serializer.data}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
@@ -98,7 +125,7 @@ def auth_login(request):
 
 @api_view(['GET'])
 def auth_session(request):
-    if request.user and request.user.is_authenticated:
+    if request.user.is_authenticated:
         serializer = UserSerializer(request.user)
         return Response({'user': serializer.data})
     return Response({'user': None})
@@ -107,5 +134,4 @@ def auth_session(request):
 @api_view(['POST'])
 def auth_logout(request):
     logout(request)
-    # clear session cookie on client side; server responds OK
     return Response({'ok': True}, status=status.HTTP_200_OK)

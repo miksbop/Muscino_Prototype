@@ -21,6 +21,7 @@ export type Song = {
  * Ownership is game-layer data.
  */
 export type OwnedSong = Song & {
+  songId: string;     // The canonical ID of the song
   obtainedAt: string; // ISO date string
   rarity: Rarity;     // what rarity THIS owned instance has
 };
