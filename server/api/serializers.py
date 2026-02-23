@@ -51,7 +51,7 @@ class OwnedSongSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OwnedSong
-        fields = ['id', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner', 'spotifyTrackId', 'spotifyUrl']
+        fields = ['id', 'songId', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner', 'spotifyTrackId', 'spotifyUrl']
 
 
 class UserSerializer(serializers.ModelSerializer):
