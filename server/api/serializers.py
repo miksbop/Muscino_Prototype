@@ -20,10 +20,12 @@ class SleeveSongSerializer(serializers.ModelSerializer):
     coverUrl = serializers.CharField(source='song.cover_url')
     genre = serializers.CharField(source='song.genre')
     rarity = serializers.CharField()
+    spotifyTrackId = serializers.CharField(source='song.spotify_track_id', allow_null=True)
+    spotifyUrl = serializers.CharField(source='song.spotify_url', allow_null=True)
 
     class Meta:
         model = SleeveSong
-        fields = ['id', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'weight']
+        fields = ['id', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'weight', 'spotifyTrackId', 'spotifyUrl']
 
 
 class SleeveSerializer(serializers.ModelSerializer):
@@ -44,10 +46,12 @@ class OwnedSongSerializer(serializers.ModelSerializer):
     rarity = serializers.CharField()
     obtainedAt = serializers.DateTimeField(source='obtained_at')
     owner = serializers.CharField(source='owner.username', allow_null=True)
+    spotifyTrackId = serializers.CharField(source='song.spotify_track_id', allow_null=True)
+    spotifyUrl = serializers.CharField(source='song.spotify_url', allow_null=True)
 
     class Meta:
         model = OwnedSong
-        fields = ['id', 'songId', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner']
+        fields = ['id', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner', 'spotifyTrackId', 'spotifyUrl']
 
 
 class UserSerializer(serializers.ModelSerializer):

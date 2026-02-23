@@ -175,3 +175,19 @@ Output now includes:
 Note on bias:
 - Spotify search often returns already-popular tracks first, so this mapping can skew results toward high rarity if you only use top search results.
 - That's acceptable for this phase; later you can balance by mixing query sources, paging deeper (`offset`), or post-normalizing rarity distribution.
+
+## Spotify metadata hydration + cache
+
+To avoid persisting Spotify display metadata in SQLite, API responses can hydrate track details from Spotify at request time and cache them briefly in Django cache.
+
+Set these env vars before running the backend:
+
+```bash
+export SPOTIFY_CLIENT_ID="your_client_id"
+export SPOTIFY_CLIENT_SECRET="your_client_secret"
+# optional, defaults to 3600 seconds
+export SPOTIFY_TRACK_CACHE_TTL_SECONDS="3600"
+```
+
+When configured, endpoints such as `/api/songs/`, `/api/sleeves/`, and `/api/inventory/` resolve `spotifyTrackId` into fresh `title`, `artist`, and `coverUrl` values from Spotify.
+If credentials are absent or Spotify is unavailable, the backend falls back to DB values.

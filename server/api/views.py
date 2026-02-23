@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from .models import Sleeve, SleeveSong, OwnedSong, Song
 from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer
-
+from .spotify import hydrate_songs_from_spotify
 
 RARITY_WEIGHT = {
     'Common': 35,
@@ -23,14 +23,18 @@ RARITY_WEIGHT = {
 def songs_list(request):
     songs = Song.objects.all()
     serializer = SongSerializer(songs, many=True)
-    return Response(serializer.data)
-
+    data = hydrate_songs_from_spotify(list(serializer.data))
+    return Response(data)
 
 @api_view(['GET'])
 def sleeves_list(request):
     sleeves = Sleeve.objects.prefetch_related('contents__song').all()
     serializer = SleeveSerializer(sleeves, many=True)
-    return Response(serializer.data)
+    data = list(serializer.data)
+    for sleeve in data:
+        contents = sleeve.get('contents', [])
+        hydrate_songs_from_spotify(contents)
+    return Response(data)
 
 
 @api_view(['GET'])
@@ -47,7 +51,8 @@ def inventory_list(request):
             items = []
 
     serializer = OwnedSongSerializer(items, many=True)
-    return Response(serializer.data)
+    data = hydrate_songs_from_spotify(list(serializer.data))
+    return Response(data)
 
 
 @api_view(['POST'])
@@ -84,7 +89,9 @@ def open_sleeve(request, sleeve_id):
 
     owned = OwnedSong.objects.create(song=chosen.song, rarity=chosen.rarity, owner=request.user)
     serializer = OwnedSongSerializer(owned)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    data = serializer.data
+    hydrate_songs_from_spotify([data])
+    return Response(data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
