@@ -130,6 +130,8 @@ def hydrate_songs_from_spotify(song_rows: list[dict[str, Any]]) -> list[dict[str
     for idx, song in enumerate(song_rows):
         song_id = song.get("id")
         track_id = song.get("spotifyTrackId")
+        if not track_id and isinstance(song_id, str) and song_id.startswith("spotify_track_"):
+            track_id = song_id.removeprefix("spotify_track_")
         if not song_id or not track_id:
             continue
 

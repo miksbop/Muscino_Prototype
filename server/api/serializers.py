@@ -17,7 +17,7 @@ class SleeveSongSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='song.id')
     title = serializers.CharField(source='song.title')
     artist = serializers.CharField(source='song.artist')
-    coverUrl = serializers.CharField(source='song.cover_url')
+    coverUrl = serializers.CharField(source='song.cover_url', allow_null=True)
     genre = serializers.CharField(source='song.genre')
     rarity = serializers.CharField()
     spotifyTrackId = serializers.CharField(source='song.spotify_track_id', allow_null=True)
@@ -29,7 +29,7 @@ class SleeveSongSerializer(serializers.ModelSerializer):
 
 
 class SleeveSerializer(serializers.ModelSerializer):
-    contents = SleeveSongSerializer(many=True, source='contents')
+    contents = SleeveSongSerializer(many=True)
     refreshedWeekly = serializers.BooleanField(source='refreshed_weekly')
 
     class Meta:
@@ -41,7 +41,7 @@ class OwnedSongSerializer(serializers.ModelSerializer):
     id = serializers.CharField(source='song.id')
     title = serializers.CharField(source='song.title')
     artist = serializers.CharField(source='song.artist')
-    coverUrl = serializers.CharField(source='song.cover_url')
+    coverUrl = serializers.CharField(source='song.cover_url', allow_null=True)
     genre = serializers.CharField(source='song.genre')
     rarity = serializers.CharField()
     obtainedAt = serializers.DateTimeField(source='obtained_at')

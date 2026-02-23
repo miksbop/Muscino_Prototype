@@ -1,0 +1,182 @@
+[
+  {
+    "id": "spotify_track_37xVdjsyzWj7HFlsbm911L",
+    "title": "Screw Heads",
+    "artist": "Dat Boi T",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273a84ba64072ccf1de77de92e0",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "37xVdjsyzWj7HFlsbm911L",
+    "spotify_url": "https://open.spotify.com/track/37xVdjsyzWj7HFlsbm911L",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_2ZYojokYK8blsTWmqDTVTm",
+    "title": "Boo Hoo Hoo - Album Version (Edited)",
+    "artist": "Lil Rob",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273bd549dbe2417972f816fa75f",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "2ZYojokYK8blsTWmqDTVTm",
+    "spotify_url": "https://open.spotify.com/track/2ZYojokYK8blsTWmqDTVTm",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_6G6zMZQCA152NaS0Ejweq5",
+    "title": "Comfy On My Feet",
+    "artist": "Mr. Pookie",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b27302e8a5e1c0ec1fa14b1c88b7",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "6G6zMZQCA152NaS0Ejweq5",
+    "spotify_url": "https://open.spotify.com/track/6G6zMZQCA152NaS0Ejweq5",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_6Wega6tAXjgZgAi33Bmkwy",
+    "title": "Raindrops - Chopped & Screwed",
+    "artist": "Fat Bastard, Tum Tum, Dirty South Rydaz, LilZa",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273e589ed97c022639c6b02d27a",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "6Wega6tAXjgZgAi33Bmkwy",
+    "spotify_url": "https://open.spotify.com/track/6Wega6tAXjgZgAi33Bmkwy",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_0aExvGD3AUHpwzoATIWYt4",
+    "title": "In Tha Hood Chopped & Screwed",
+    "artist": "Big Pokey",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273ce03aba573f78ef3ceaee637",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "0aExvGD3AUHpwzoATIWYt4",
+    "spotify_url": "https://open.spotify.com/track/0aExvGD3AUHpwzoATIWYt4",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_0q7u5BsuQ1eibJyudWG9rA",
+    "title": "Masquerade - Album Version (Edited)",
+    "artist": "Nicki Minaj",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273b7177ef2bd57834fb54c4381",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "0q7u5BsuQ1eibJyudWG9rA",
+    "spotify_url": "https://open.spotify.com/track/0q7u5BsuQ1eibJyudWG9rA",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_0coYBQg6CtneSSZPBid3u0",
+    "title": "Rolling Down The Freeway - Album Version (Edited)",
+    "artist": "Freeway",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b2732bc0477946563cd6799c3c1a",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "0coYBQg6CtneSSZPBid3u0",
+    "spotify_url": "https://open.spotify.com/track/0coYBQg6CtneSSZPBid3u0",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_70qDwUsKon8jRd6zzJz5C6",
+    "title": "Come On A Cone - Album Version (Edited)",
+    "artist": "Nicki Minaj",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b2738efdeb03d9fb6f61a1642db5",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "70qDwUsKon8jRd6zzJz5C6",
+    "spotify_url": "https://open.spotify.com/track/70qDwUsKon8jRd6zzJz5C6",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_3nuziOxX9UQ5OoCxYL8vpf",
+    "title": "Automatic - Album Version (Edited)",
+    "artist": "Nicki Minaj",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b2738efdeb03d9fb6f61a1642db5",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "3nuziOxX9UQ5OoCxYL8vpf",
+    "spotify_url": "https://open.spotify.com/track/3nuziOxX9UQ5OoCxYL8vpf",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  },
+  {
+    "id": "spotify_track_5AwI7nt0OOiMEodm1Nt35H",
+    "title": "Durex",
+    "artist": "Sulblime Oficial, Khal",
+    "cover_url": "https://i.scdn.co/image/ab67616d0000b273f552fa3c27cc09ac12f19375",
+    "genre": "Hip-Hop",
+    "genre_source": {
+      "method": "text_fallback",
+      "confidence": "low",
+      "matched_keyword": "rap",
+      "spotify_artist_genres": [],
+      "query": "genre:rap"
+    },
+    "spotify_track_id": "5AwI7nt0OOiMEodm1Nt35H",
+    "spotify_url": "https://open.spotify.com/track/5AwI7nt0OOiMEodm1Nt35H",
+    "spotify_popularity": null,
+    "rarity": "Common"
+  }
+]
