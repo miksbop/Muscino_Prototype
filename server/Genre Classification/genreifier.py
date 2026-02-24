@@ -23,6 +23,7 @@ genres = ['blues', 'classical', 'country', 'disco', 'hiphop', 'jazz', 'metal', '
 #Preprocess Audio
 def load_and_preprocess_audio(file_path, target_shape=(150,150)):
     data=[]
+    
     audio_data, sample_rate = librosa.load(file_path, sr=None)
     #Define duration of chunk / overlap in seconds
     chunk_duration = 4 
