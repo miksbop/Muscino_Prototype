@@ -38,7 +38,7 @@ class SleeveSerializer(serializers.ModelSerializer):
 
 
 class OwnedSongSerializer(serializers.ModelSerializer):
-    id = serializers.CharField(source='song.id')
+    songId = serializers.CharField(source='song.id')
     title = serializers.CharField(source='song.title')
     artist = serializers.CharField(source='song.artist')
     coverUrl = serializers.CharField(source='song.cover_url', allow_null=True)
@@ -51,7 +51,7 @@ class OwnedSongSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OwnedSong
-        fields = ['id', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner', 'spotifyTrackId', 'spotifyUrl']
+        fields = ['id', 'songId', 'title', 'artist', 'coverUrl', 'genre', 'rarity', 'obtainedAt', 'owner', 'spotifyTrackId', 'spotifyUrl']
 
 
 class UserSerializer(serializers.ModelSerializer):

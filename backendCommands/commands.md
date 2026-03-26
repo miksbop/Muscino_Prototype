@@ -20,10 +20,6 @@ python seed.py
 
 python manage.py runserver 8000
 
-## To create a user, go to the server directory of the project and put this command into the terminal,
-
-.\.venv\Scripts\Activate.ps1
-python .\create_user_cli.py
 
 ## Once created open a new terminal and start the frontend enviroment with:
 

@@ -6,8 +6,9 @@ import { useAuth } from "../context/useAuth";
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { isSignedIn, signIn } = useAuth();
+  const { isSignedIn, signIn, signUp } = useAuth();
 
+  const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -19,10 +20,14 @@ export function LoginPage() {
 
     try {
       setSubmitting(true);
-      await signIn({ username, password });
+      if (mode === "login") {
+        await signIn({ username, password });
+      } else {
+        await signUp({ username, password });
+      }
       navigate("/collection");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to sign in");
+      setError(err instanceof Error ? err.message : "Unable to process request");
     } finally {
       setSubmitting(false);
     }
@@ -33,9 +38,13 @@ export function LoginPage() {
       <div className="mx-auto w-full max-w-md">
         <GlassPanel className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-white">Sign in</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-white">
+              {mode === "login" ? "Sign in" : "Create account"}
+            </h1>
             <p className="text-sm text-neutral-300">
-              Default state is signed out. This page is frontend-wired now and can be connected to backend auth endpoints later.
+              {mode === "login"
+                ? "Sign in to access your collection across devices."
+                : "Join Muscino to start collecting your favorite tracks."}
             </p>
           </div>
 
@@ -80,8 +89,26 @@ export function LoginPage() {
               disabled={submitting}
               className="w-full rounded-xl border border-blue-400/40 bg-blue-500/20 px-4 py-2.5 text-sm font-medium text-blue-100 transition hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Signing in..." : "Sign in"}
+              {submitting
+                ? mode === "login"
+                  ? "Signing in..."
+                  : "Creating account..."
+                : mode === "login"
+                  ? "Sign in"
+                  : "Create account"}
             </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setMode(mode === "login" ? "register" : "login")}
+                className="text-xs text-neutral-400 hover:text-white transition"
+              >
+                {mode === "login"
+                  ? "Don't have an account? Create one"
+                  : "Already have an account? Sign in"}
+              </button>
+            </div>
           </form>
         </GlassPanel>
       </div>

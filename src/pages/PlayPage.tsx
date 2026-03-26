@@ -4,6 +4,7 @@ import GlassPanel from "../components/GlassPanel";
 import { SongCard } from "../components/SongCard";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { api } from "../services/api";
+import { useAuth } from "../context/useAuth";
 import type { OwnedSong } from "../types/song";
 import type { Sleeve } from "../types/sleeve";
 
@@ -47,6 +48,7 @@ function buildReel(items: OwnedSong[], result: OwnedSong) {
 }
 
 export function PlayPage() {
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sleeves, setSleeves] = useState<Sleeve[]>([]);
 
@@ -143,6 +145,7 @@ export function PlayPage() {
 
     try {
       const owned = await api.openSleeve(current.id);
+      void refreshUser();
       const pool = (current.contents ?? []) as OwnedSong[];
       const built = buildReel(pool, owned);
 
@@ -241,7 +244,10 @@ export function PlayPage() {
                       Close
                     </button>
                     <button
-                      onClick={closeOverlay}
+                      onClick={async () => {
+                        await refreshUser();
+                        closeOverlay();
+                      }}
                       className="px-4 py-2 rounded-xl bg-blue-500/70 border border-blue-300/20 hover:bg-blue-500/80 transition"
                     >
                       Save to Collection
