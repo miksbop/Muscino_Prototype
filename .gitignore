@@ -27,3 +27,23 @@ dist-ssr
 .env
 .env.*
 server/.env
+
+# Python virtual envs
+.venv/
+venv/
+server/.venv/
+
+# Python cache/compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc.*
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Django local DB / runtime
+server/db.sqlite3
