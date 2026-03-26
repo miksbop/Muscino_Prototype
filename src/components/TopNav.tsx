@@ -31,7 +31,14 @@ export function TopNav() {
             Collection
           </NavLink>
 
-          <span className="opacity-50 cursor-not-allowed select-none">Market</span>
+           <NavLink
+            to="/market"
+            className={({ isActive }) =>
+              [linkBase, isActive ? linkActiveGlow : linkInactive].join(" ")
+            }
+          >
+            Market
+          </NavLink>
 
           <NavLink
             to="/"

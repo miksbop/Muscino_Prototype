@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Song, Sleeve, SleeveSong, OwnedSong
+from .models import Song, Sleeve, SleeveSong, OwnedSong, MarketListing
 
 
 class SongSerializer(serializers.ModelSerializer):
@@ -80,3 +80,36 @@ class UserSerializer(serializers.ModelSerializer):
             return obj.profile.avatar_url
         except Exception:
             return None
+
+
+class MarketListingSerializer(serializers.ModelSerializer):
+    ownedSongId = serializers.IntegerField(source='owned_song.id')
+    songId = serializers.CharField(source='owned_song.song.id')
+    title = serializers.CharField(source='owned_song.song.title')
+    artist = serializers.CharField(source='owned_song.song.artist')
+    coverUrl = serializers.CharField(source='owned_song.song.cover_url')
+    genre = serializers.CharField(source='owned_song.song.genre')
+    rarity = serializers.CharField(source='owned_song.rarity')
+    seller = serializers.CharField(source='seller.username')
+    buyer = serializers.CharField(source='buyer.username', allow_null=True)
+    createdAt = serializers.DateTimeField(source='created_at')
+    soldAt = serializers.DateTimeField(source='sold_at', allow_null=True)
+
+    class Meta:
+        model = MarketListing
+        fields = [
+            'id',
+            'ownedSongId',
+            'songId',
+            'title',
+            'artist',
+            'coverUrl',
+            'genre',
+            'rarity',
+            'seller',
+            'buyer',
+            'price',
+            'status',
+            'createdAt',
+            'soldAt',
+        ]

@@ -3,6 +3,7 @@ import { mockInventory as MOCK_INVENTORY } from "../mock/mockData";
 import { MOCK_SLEEVES } from "../mock/sleeves";
 import type { OwnedSong, Rarity } from "../types/song";
 import type { Sleeve, SleeveSong } from "../types/sleeve";
+import type { MarketListing } from "../types/market";
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
@@ -126,6 +127,30 @@ export const api = {
     await fetch("/api/auth/logout/", {
       method: "POST",
       credentials: "include",
+    });
+  },
+
+    async getMarketListings(): Promise<MarketListing[]> {
+    try {
+      return await fetchJson<MarketListing[]>("/api/market/listings/");
+    } catch {
+      await delay(200);
+      return [];
+    }
+  },
+
+  async createMarketListing(input: { ownedSongId: number; price: number }): Promise<MarketListing> {
+    return await fetchJson<MarketListing>("/api/market/listings/create/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  },
+
+  async buyMarketListing(listingId: number): Promise<MarketListing> {
+    return await fetchJson<MarketListing>(`/api/market/listings/${listingId}/buy/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
   },
 

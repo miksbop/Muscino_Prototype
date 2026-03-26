@@ -8,6 +8,7 @@ import { CollectionPage } from "./pages/CollectionPage";
 import HomePage from "./pages/HomePage";
 import { PlayPage } from "./pages/PlayPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MarketPage } from "./pages/MarketPage";
 
 import "./styles/index.css";            // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
 import "./styles/shared/ui.css";        // shared utilities (new drawer)
@@ -23,8 +24,9 @@ const router = createBrowserRouter([
       { path: "/", element: <HomePage /> },
       { path: "/collection", element: <CollectionPage /> },
       { path: "/play", element: <PlayPage /> },
+      { path: "/market", element: <MarketPage /> },
       { path: "/login", element: <LoginPage /> },
-      // market/profile later
+      // profile later
     ],
   },
 ]);

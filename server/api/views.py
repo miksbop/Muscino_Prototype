@@ -1,13 +1,14 @@
 import random
+from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
-from .models import Sleeve, SleeveSong, OwnedSong, Song
-from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer
+from .models import Sleeve, SleeveSong, OwnedSong, Song, MarketListing, Profile
+from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer, MarketListingSerializer
 from .spotify import hydrate_songs_from_spotify
 
 RARITY_WEIGHT = {
@@ -142,3 +143,109 @@ def auth_session(request):
 def auth_logout(request):
     logout(request)
     return Response({'ok': True}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def market_listings(request):
+    listings = (
+        MarketListing.objects
+        .filter(status='active')
+        .select_related('seller', 'buyer', 'owned_song__song')
+        .order_by('-created_at')
+    )
+    serializer = MarketListingSerializer(listings, many=True)
+    data = hydrate_songs_from_spotify(list(serializer.data))
+    return Response(data)
+
+
+@api_view(['POST'])
+def market_create_listing(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        owned_song_id = int(request.data.get('ownedSongId'))
+    except (TypeError, ValueError):
+        return Response({'detail': 'valid ownedSongId required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        price = int(request.data.get('price'))
+    except (TypeError, ValueError):
+        return Response({'detail': 'valid price required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if price <= 0:
+        return Response({'detail': 'price must be greater than zero'}, status=status.HTTP_400_BAD_REQUEST)
+
+    owned = get_object_or_404(OwnedSong.objects.select_related('owner'), pk=owned_song_id)
+    if owned.owner_id != request.user.id:
+        return Response({'detail': 'you do not own this song'}, status=status.HTTP_403_FORBIDDEN)
+
+    listing = MarketListing.objects.filter(owned_song=owned).first()
+    if listing and listing.status == 'active':
+        return Response({'detail': 'song is already listed'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if listing:
+        listing.seller = request.user
+        listing.buyer = None
+        listing.price = price
+        listing.status = 'active'
+        listing.sold_at = None
+        listing.created_at = timezone.now()
+        listing.save(update_fields=['seller', 'buyer', 'price', 'status', 'sold_at', 'created_at'])
+    else:
+        listing = MarketListing.objects.create(
+            owned_song=owned,
+            seller=request.user,
+            price=price,
+            status='active',
+        )
+    serializer = MarketListingSerializer(listing)
+    data = serializer.data
+    hydrate_songs_from_spotify([data])
+    return Response(data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def market_buy_listing(request, listing_id):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    with transaction.atomic():
+        listing = get_object_or_404(
+            MarketListing.objects.select_for_update().select_related('seller', 'owned_song'),
+            pk=listing_id,
+        )
+
+        if listing.status != 'active':
+            return Response({'detail': 'listing is no longer active'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if listing.seller_id == request.user.id:
+            return Response({'detail': 'cannot buy your own listing'}, status=status.HTTP_400_BAD_REQUEST)
+
+        buyer_profile = Profile.objects.select_for_update().get(user=request.user)
+        seller_profile = Profile.objects.select_for_update().get(user=listing.seller)
+        owned_song = OwnedSong.objects.select_for_update().get(pk=listing.owned_song_id)
+
+        if owned_song.owner_id != listing.seller_id:
+            return Response({'detail': 'listing owner mismatch'}, status=status.HTTP_409_CONFLICT)
+
+        if buyer_profile.wallet < listing.price:
+            return Response({'detail': 'not enough money in wallet'}, status=status.HTTP_400_BAD_REQUEST)
+
+        buyer_profile.wallet -= listing.price
+        seller_profile.wallet += listing.price
+        buyer_profile.save(update_fields=['wallet'])
+        seller_profile.save(update_fields=['wallet'])
+
+        owned_song.owner = request.user
+        owned_song.save(update_fields=['owner'])
+
+        listing.status = 'sold'
+        listing.buyer = request.user
+        listing.sold_at = timezone.now()
+        listing.save(update_fields=['status', 'buyer', 'sold_at'])
+
+    serializer = MarketListingSerializer(listing)
+    data = serializer.data
+    hydrate_songs_from_spotify([data])
+    return Response(data, status=status.HTTP_200_OK)

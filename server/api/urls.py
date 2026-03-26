@@ -10,4 +10,7 @@ urlpatterns = [
     path('auth/login/', views.auth_login, name='auth_login'),
     path('auth/session/', views.auth_session, name='auth_session'),
     path('auth/logout/', views.auth_logout, name='auth_logout'),
+    path('market/listings/', views.market_listings, name='market_listings'),
+    path('market/listings/create/', views.market_create_listing, name='market_create_listing'),
+    path('market/listings/<int:listing_id>/buy/', views.market_buy_listing, name='market_buy_listing'),
 ]

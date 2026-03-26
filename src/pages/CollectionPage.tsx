@@ -7,6 +7,7 @@ import { SongCard } from "../components/SongCard";
 import { MarqueeText } from "../components/MarqueeText";
 import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { useAuth } from "../context/useAuth";
 
 
 const RARITY_ORDER: Record<OwnedSong["rarity"], number> = {
@@ -20,12 +21,14 @@ const RARITY_ORDER: Record<OwnedSong["rarity"], number> = {
 const COLS_DESKTOP = 4;
 
 export function CollectionPage() {
+  const { refreshUser } = useAuth();
   const [songs, setSongs] = useState<OwnedSong[]>([]);
   const [selected, setSelected] = useState<OwnedSong | null>(null);
   const [loading, setLoading] = useState(true);
+  const [listing, setListing] = useState(false);
 
   useEffect(() => {
-  let cancelled = false;
+    let cancelled = false;
 
     (async () => {
       try {
@@ -52,6 +55,31 @@ export function CollectionPage() {
 
   const remainder = songs.length % COLS_DESKTOP;
   const emptySlots = remainder === 0 ? 0 : COLS_DESKTOP - remainder;
+
+   const listSelectedOnMarket = async () => {
+    if (!selected || listing) return;
+
+    const rawPrice = window.prompt("Set your sale price (whole number):", "50");
+    if (rawPrice === null) return;
+
+    const parsed = Number.parseInt(rawPrice.trim(), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      window.alert("Please enter a valid positive whole number.");
+      return;
+    }
+
+    try {
+      setListing(true);
+      await api.createMarketListing({ ownedSongId: Number(selected.id), price: parsed });
+      window.alert(`Listed ${selected.title} for ${parsed}.`);
+      await refreshUser();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to create listing.";
+      window.alert(message);
+    } finally {
+      setListing(false);
+    }
+  };
 
   return (
     <div className="h-full bg-neutral-950 text-white">
@@ -97,8 +125,15 @@ export function CollectionPage() {
                     <button className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm">
                       Display on profile
                     </button>
-                    <button className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm">
-                      List on market
+                     <button
+                      type="button"
+                      className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={() => {
+                        void listSelectedOnMarket();
+                      }}
+                      disabled={listing}
+                    >
+                      {listing ? "Listing..." : "List on market"}
                     </button>
                   </div>
                 </>

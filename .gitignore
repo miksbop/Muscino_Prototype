@@ -47,3 +47,12 @@ __pycache__/
 
 # Django local DB / runtime
 server/db.sqlite3
+
+# Temp / scratch files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Prevent malformed venv paths
+*.venv*

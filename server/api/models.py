@@ -72,6 +72,38 @@ class OwnedSong(models.Model):
         return f"Owned {self.song} ({self.rarity})"
 
 
+LISTING_STATUS_CHOICES = [
+    ("active", "active"),
+    ("sold", "sold"),
+    ("cancelled", "cancelled"),
+]
+
+
+class MarketListing(models.Model):
+    owned_song = models.OneToOneField(OwnedSong, on_delete=models.CASCADE, related_name='market_listing')
+    seller = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='market_listings')
+    buyer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='market_purchases',
+        null=True,
+        blank=True,
+    )
+    price = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=LISTING_STATUS_CHOICES, default='active')
+    created_at = models.DateTimeField(auto_now_add=True)
+    sold_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['seller', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.owned_song_id} listed by {self.seller_id} ({self.status})"
+
+
 # Ensure a Profile exists for each User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
