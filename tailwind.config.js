@@ -7,4 +7,11 @@ export default {
   plugins: [],
 };
 
-
+theme: {
+  extend: {
+    fontFamily: {
+      sans: ["Weezer", "system-ui", "sans-serif"],
+      poppins: ["Weezer", "system-ui", "sans-serif"],
+    },
+  },
+},

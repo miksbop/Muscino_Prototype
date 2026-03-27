@@ -91,10 +91,17 @@ class MarketListingSerializer(serializers.ModelSerializer):
     genre = serializers.CharField(source='owned_song.song.genre')
     rarity = serializers.CharField(source='owned_song.rarity')
     seller = serializers.CharField(source='seller.username')
+    sellerAvatarUrl = serializers.SerializerMethodField()
     buyer = serializers.CharField(source='buyer.username', allow_null=True)
     createdAt = serializers.DateTimeField(source='created_at')
     soldAt = serializers.DateTimeField(source='sold_at', allow_null=True)
 
+    def get_sellerAvatarUrl(self, obj):
+        try:
+            return obj.seller.profile.avatar_url
+        except Exception:
+            return None
+        
     class Meta:
         model = MarketListing
         fields = [
@@ -107,6 +114,7 @@ class MarketListingSerializer(serializers.ModelSerializer):
             'genre',
             'rarity',
             'seller',
+            'sellerAvatarUrl',
             'buyer',
             'price',
             'status',

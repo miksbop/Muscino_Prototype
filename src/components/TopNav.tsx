@@ -56,7 +56,7 @@ export function TopNav() {
           ) : isSignedIn && user ? (
             <>
               <div className="flex items-center gap-1 min-w-0">
-                <span className="text-neutral-400 truncate">{user.displayName}</span>
+                <NavLink to={`/profile/${encodeURIComponent(user.username)}`} className="text-neutral-300 hover:text-white truncate">{user.displayName}</NavLink>
                 <span className="text-blue-400 font-medium shrink-0">{user.wallet}</span>
               </div>
 

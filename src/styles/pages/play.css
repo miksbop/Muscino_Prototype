@@ -61,6 +61,65 @@
   z-index: 1;
 }
 
+.play-panel-pop {
+  opacity: 0;
+  transform: translateY(26px) scale(0.97);
+  transition:
+    opacity 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.play-panel-pop.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.play-panel-content {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.play-panel-content::after {
+  content: "";
+  position: absolute;
+  inset: -15% auto -15% -45%;
+  width: 36%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(0) skewX(-20deg);
+  background: linear-gradient(
+    110deg,
+    rgba(var(--sheen-rgb, 255 255 255) / 0) 8%,
+    rgba(var(--sheen-rgb, 255 255 255) / 0.10) 47%,
+    rgba(var(--sheen-rgb, 255 255 255) / 0.2) 50%,
+    rgba(var(--sheen-rgb, 255 255 255) / 0.09) 53%,
+    rgba(var(--sheen-rgb, 255 255 255) / 0) 92%
+  );
+  filter: blur(1px);
+}
+
+.play-panel-pop.has-sheen .play-panel-content::after {
+  animation: playSheenReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) 1 forwards;
+}
+
+@keyframes playSheenReveal {
+  0% {
+    opacity: 0;
+    transform: translateX(0) skewX(-20deg);
+  }
+  12% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(370%) skewX(-20deg);
+  }
+}
+
 /* constant vignette / depth on top */
 .play-bg::after {
   content: "";
@@ -88,6 +147,20 @@
   filter: saturate(1.25) brightness(1.08) blur(6px);
 }
 .play-bg-layer.is-active { opacity: 1; }
+
+.play-bg-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #000;
+  opacity: 1;
+  transition: opacity 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.play-bg-intro.is-faded {
+  opacity: 0;
+}
 
 /* POP theme (blue wash) */
 .play-bg-pop {
@@ -125,6 +198,25 @@
     radial-gradient(1300px 1000px at 88% 78%,
       rgba(230, 70, 115, 0.44),
       rgba(230, 70, 115, 0.00) 76%);
+}
+
+/* RAP theme (orange wash) */
+.play-bg-rap {
+  background:
+    linear-gradient(180deg,
+      rgba(255, 178, 96, 0.54) 0%,
+      rgba(255, 126, 48, 0.30) 42%,
+      rgba(7, 9, 13, 0.72) 82%,
+      rgba(7, 9, 13, 1.00) 100%),
+    radial-gradient(1500px 1000px at 50% 10%,
+      rgba(255, 213, 165, 0.66),
+      rgba(255, 213, 165, 0.00) 70%),
+    radial-gradient(1400px 1100px at 12% 75%,
+      rgba(255, 169, 89, 0.54),
+      rgba(255, 169, 89, 0.00) 74%),
+    radial-gradient(1300px 1000px at 88% 78%,
+      rgba(230, 108, 40, 0.42),
+      rgba(230, 108, 40, 0.00) 76%);
 }
 
 /* =========================
@@ -362,6 +454,60 @@
   border-color: rgba(255,255,255,0.10);
 }
 
+.play-open-btn {
+  position: relative;
+  color: rgba(255,255,255,0.95);
+  border: 1px solid rgba(147, 197, 253, 0.34);
+  background:
+    linear-gradient(180deg, rgba(96, 165, 250, 0.88) 0%, rgba(37, 99, 235, 0.84) 100%);
+  box-shadow:
+    0 10px 28px rgba(29, 78, 216, 0.34),
+    0 0 0 1px rgba(255,255,255,0.05) inset;
+  transform: translateY(0) scale(1);
+  transition:
+    transform 170ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 170ms ease,
+    box-shadow 190ms ease,
+    border-color 170ms ease;
+  animation: playOpenPulse 2.1s ease-in-out infinite;
+}
+
+.play-open-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.03);
+  border-color: rgba(191, 219, 254, 0.8);
+  filter: saturate(1.08) brightness(1.04);
+  box-shadow:
+    0 16px 34px rgba(37, 99, 235, 0.50),
+    0 0 0 1px rgba(255,255,255,0.08) inset;
+}
+
+.play-open-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  filter: saturate(1.1);
+  box-shadow:
+    0 8px 18px rgba(37, 99, 235, 0.34),
+    0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+
+.play-open-btn:disabled {
+  animation: none;
+}
+
+@keyframes playOpenPulse {
+  0%, 100% {
+    box-shadow:
+      0 10px 28px rgba(29, 78, 216, 0.34),
+      0 0 0 1px rgba(255,255,255,0.05) inset,
+      0 0 0 0 rgba(96, 165, 250, 0.0);
+  }
+  50% {
+    box-shadow:
+      0 13px 30px rgba(37, 99, 235, 0.40),
+      0 0 0 1px rgba(255,255,255,0.06) inset,
+      0 0 0 9px rgba(96, 165, 250, 0.13);
+  }
+}
+
 /* =========================
    Opening reel (BIG + SLOW + CENTER-WEIGHTED)
    ========================= */
@@ -517,10 +663,16 @@
    ========================= */
 
 @media (prefers-reduced-motion: reduce) {
+  .play-panel-pop {
+    transition: none;
+    transform: none;
+  }
+  .play-panel-pop.has-sheen .play-panel-content::after { animation: none; }
   .play-bg-layer { transition: none; }
   .play-sleeve-closed,
   .play-sleeve-open,
   .play-peek-card { transition: none; }
+  .play-open-btn { animation: none; }
   .play-refresh-fade { animation: none; opacity: 1; }
 
   .muscino-reel-track {

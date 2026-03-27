@@ -1,15 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api";
 import type { MarketListing } from "../types/market";
 import { useAuth } from "../context/useAuth";
 import { rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { MarqueeText } from "../components/MarqueeText";
+
+type SortDirection = "asc" | "desc";
+
+const DEFAULT_AVATAR =
+  "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
+const ROWS_PER_PAGE = 6;
 
 export function MarketPage() {
   const { user, refreshUser } = useAuth();
   const [listings, setListings] = useState<MarketListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [buyingId, setBuyingId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [genreFilter, setGenreFilter] = useState<string>("all");
+  const [costSortDirection, setCostSortDirection] = useState<SortDirection>("asc");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadListings = async () => {
     setLoading(true);
@@ -40,57 +51,217 @@ export function MarketPage() {
     }
   };
 
-  return (
-    <div className="h-full bg-neutral-950 text-white overflow-y-auto">
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        <h1 className="text-2xl font-semibold mb-1">Market</h1>
-        <p className="text-sm text-neutral-400 mb-6">Buy songs listed by other players.</p>
+  const genreOptions = useMemo(() => {
+    const genres = [...new Set(listings.map((listing) => listing.genre))].sort((a, b) => a.localeCompare(b));
+    return ["all", ...genres];
+  }, [listings]);
 
+  const filteredListings = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return listings
+      .filter((listing) => {
+        if (genreFilter === "all") return true;
+        return listing.genre === genreFilter;
+      })
+      .filter((listing) => {
+        if (!normalizedSearch) return true;
+        const haystack = `${listing.title} ${listing.artist} ${listing.seller} ${listing.genre}`.toLowerCase();
+        return haystack.includes(normalizedSearch);
+      })
+      .sort((a, b) => (costSortDirection === "asc" ? a.price - b.price : b.price - a.price));
+  }, [listings, genreFilter, search, costSortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredListings.length / ROWS_PER_PAGE));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [genreFilter, search, costSortDirection]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const pagedListings = useMemo(() => {
+    const startIndex = (currentPage - 1) * ROWS_PER_PAGE;
+    return filteredListings.slice(startIndex, startIndex + ROWS_PER_PAGE);
+  }, [filteredListings, currentPage]);
+
+  const paginationPages = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, idx) => idx + 1);
+    }
+
+    const pages = new Set<number>([1, 2, totalPages - 1, totalPages, currentPage - 1, currentPage, currentPage + 1]);
+    return [...pages].filter((page) => page >= 1 && page <= totalPages).sort((a, b) => a - b);
+  }, [currentPage, totalPages]);
+
+  const fillerRows = Math.max(0, ROWS_PER_PAGE - pagedListings.length);
+
+  const rowGridClass =
+    "grid grid-cols-[80px_minmax(0,2.2fr)_minmax(0,1.9fr)_minmax(0,1.35fr)_120px_144px] items-center";
+
+  return (
+    <div className="h-full bg-neutral-950 text-white overflow-hidden">
+      <div className="h-full max-w-7xl mx-auto px-6 pt-6 pb-6 min-h-0">
         {loading ? (
-          <div className="grid place-items-center py-16">
+          <div className="h-full grid place-items-center">
             <LoadingSpinner />
           </div>
-        ) : listings.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-neutral-300">
-            No active listings yet.
-          </div>
+        ) : filteredListings.length === 0 ? (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-neutral-300">No matching listings found.</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {listings.map((listing) => {
-              const isOwn = user?.username === listing.seller;
-              const buyingThis = buyingId === listing.id;
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 h-full min-h-0 flex flex-col">
+            <div className="flex items-center justify-between gap-3 px-3 pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2 text-sm text-neutral-300">
+                <label htmlFor="genre-filter">Genre:</label>
+                <select
+                  id="genre-filter"
+                  value={genreFilter}
+                  onChange={(event) => {
+                    setGenreFilter(event.target.value);
+                  }}
+                  className="rounded-md border border-white/20 bg-neutral-900 px-2 py-1"
+                >
+                  {genreOptions.map((genre) => (
+                    <option key={genre} value={genre}>
+                      {genre === "all" ? "All" : genre}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              return (
-                <div key={listing.id} className="rounded-xl border border-white/10 bg-white/5 p-3 flex flex-col gap-3">
-                  <div className="w-full aspect-square rounded-lg overflow-hidden bg-black/20 border border-white/10">
-                    <img src={listing.coverUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-                  </div>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                }}
+                placeholder="Search..."
+                className="w-[26rem] max-w-[42%] rounded-md border border-white/20 bg-neutral-900 px-3 py-1.5 text-sm"
+              />
+            </div>
 
-                  <div>
-                    <div className="font-semibold truncate">{listing.title}</div>
-                    <div className="text-sm text-neutral-300 truncate">{listing.artist}</div>
-                    <div className="text-xs text-neutral-400 mt-1">
-                      {listing.genre} · <span className={rarityTextClass(listing.rarity)}>{listing.rarity}</span>
+            <div className={`${rowGridClass} text-neutral-400 text-sm px-3 py-3 border-b border-white/10`}>
+              <div>Cover</div>
+              <div>Song Name</div>
+              <div>Artist</div>
+              <div>Listed By</div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCostSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+                }}
+                className="text-left hover:text-white"
+              >
+                Cost {costSortDirection === "asc" ? "↑" : "↓"}
+              </button>
+              <div />
+            </div>
+
+            <div className="flex-1 min-h-0 flex flex-col gap-3 py-3">
+              {pagedListings.map((listing) => {
+                const isOwn = user?.username === listing.seller;
+                const buyingThis = buyingId === listing.id;
+
+                return (
+                  <div
+                    key={listing.id}
+                    className={`${rowGridClass} rounded-lg bg-black/30 border border-white/5 px-3 py-3 min-h-[92px]`}
+                  >
+                    <div className="flex items-center justify-center">
+                      <img
+                        src={listing.coverUrl}
+                        alt=""
+                        className="w-16 h-16 rounded-md object-cover border border-white/10"
+                        draggable={false}
+                      />
                     </div>
-                    <div className="text-xs text-neutral-400 mt-1">Seller: {listing.seller}</div>
-                  </div>
 
-                  <div className="mt-auto flex items-center justify-between gap-2">
-                    <div className="text-blue-300 font-semibold">{listing.price}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[1.02rem] leading-tight truncate">{listing.title}</div>
+                      <div className="text-sm text-neutral-400 truncate mt-0.5">
+                        {listing.genre} · <span className={rarityTextClass(listing.rarity)}>{listing.rarity}</span>
+                      </div>
+                    </div>
+
+                    <div className="min-w-0">
+                      <MarqueeText text={listing.artist} className="text-[1.03rem] text-neutral-200" speedPxPerSec={24} delayMs={900} />
+                    </div>
+
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img
+                        src={listing.sellerAvatarUrl || DEFAULT_AVATAR}
+                        alt={`${listing.seller} avatar`}
+                        className="w-11 h-11 rounded-md border border-white/20 object-cover"
+                        draggable={false}
+                      />
+                      <span className="text-[1rem] text-neutral-200 truncate">{listing.seller}</span>
+                    </div>
+
+                    <div className="text-blue-300 font-semibold tabular-nums text-[1.03rem] truncate">{listing.price}</div>
+
+                    <div className="flex justify-start">
+                      <button
+                        type="button"
+                        disabled={isOwn || buyingId !== null}
+                        onClick={() => {
+                          void buyListing(listing.id);
+                        }}
+                        className="px-4 py-2 rounded-md text-[0.95rem] border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isOwn ? "Your listing" : buyingThis ? "Buying..." : "Purchase"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {Array.from({ length: fillerRows }).map((_, index) => (
+                <div
+                  key={`empty-market-row-${index}`}
+                  aria-hidden="true"
+                  className={`${rowGridClass} rounded-lg bg-black/20 border border-white/5 px-3 py-3 min-h-[92px]`}
+                >
+                  <div className="flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-md border border-white/10 bg-white/5" />
+                  </div>
+                  <div className="text-neutral-500">...</div>
+                  <div className="text-neutral-500">...</div>
+                  <div className="text-neutral-500">...</div>
+                  <div className="text-neutral-500">...</div>
+                  <div />
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-white/10 flex justify-end items-center gap-1 text-sm">
+              {paginationPages.map((page, index) => {
+                const previousPage = paginationPages[index - 1];
+                const showGap = previousPage !== undefined && page - previousPage > 1;
+
+                return (
+                  <div key={page} className="flex items-center gap-1">
+                    {showGap ? <span className="px-1 text-neutral-500">...</span> : null}
                     <button
                       type="button"
-                      disabled={isOwn || buyingId !== null}
                       onClick={() => {
-                        void buyListing(listing.id);
+                        setCurrentPage(page);
                       }}
-                      className="px-3 py-1.5 rounded-md text-sm border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className={`px-2 py-1 rounded border ${
+                        page === currentPage
+                          ? "border-blue-400 bg-blue-500/20 text-blue-200"
+                          : "border-white/20 bg-white/5 hover:bg-white/10"
+                      }`}
                     >
-                      {isOwn ? "Your listing" : buyingThis ? "Buying..." : "Buy"}
+                      {page}
                     </button>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

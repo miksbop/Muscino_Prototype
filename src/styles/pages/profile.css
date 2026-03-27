@@ -1,0 +1,17 @@
+.profile-page-scale {
+  zoom: calc(1 / var(--ui-scale));
+  width: calc(100% * var(--ui-scale));
+  min-height: calc(100% * var(--ui-scale));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Firefox fallback (no zoom support). */
+@supports not (zoom: 1) {
+  .profile-page-scale {
+    transform: scale(calc(1 / var(--ui-scale)));
+    transform-origin: top center;
+    width: calc(100% * var(--ui-scale));
+    min-height: calc(100% * var(--ui-scale));
+  }
+}

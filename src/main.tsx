@@ -9,13 +9,15 @@ import HomePage from "./pages/HomePage";
 import { PlayPage } from "./pages/PlayPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
-import "./styles/index.css";            // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
-import "./styles/shared/ui.css";        // shared utilities (new drawer)
-import "./styles/shared/effects.css";   // shared effects (new drawer)
-import "./styles/pages/home.css";       // Home page styles
+import "./styles/index.css"; // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
+import "./styles/shared/ui.css"; // shared utilities (new drawer)
+import "./styles/shared/effects.css"; // shared effects (new drawer)
+import "./styles/pages/home.css"; // Home page styles
 import "./styles/pages/collection.css"; // Collection page style
-import "./styles/pages/play.css";       // Play page style
+import "./styles/pages/play.css"; // Play page style
+
 
 const router = createBrowserRouter([
   {
@@ -26,7 +28,7 @@ const router = createBrowserRouter([
       { path: "/play", element: <PlayPage /> },
       { path: "/market", element: <MarketPage /> },
       { path: "/login", element: <LoginPage /> },
-      // profile later
+      { path: "/profile/:username", element: <ProfilePage /> },
     ],
   },
 ]);
@@ -36,5 +38,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <AuthProvider>
       <RouterProvider router={router} />
     </AuthProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

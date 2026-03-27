@@ -4,6 +4,7 @@ import { MOCK_SLEEVES } from "../mock/sleeves";
 import type { OwnedSong, Rarity } from "../types/song";
 import type { Sleeve, SleeveSong } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
+import type { ProfileView } from "../types/profile";
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
@@ -152,6 +153,20 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
     });
+  },
+
+
+  async getInventoryByOwner(username: string): Promise<OwnedSong[]> {
+    try {
+      return await fetchJson<OwnedSong[]>(`/api/inventory/?owner=${encodeURIComponent(username)}`);
+    } catch {
+      await delay(200);
+      return mockInventory;
+    }
+  },
+
+  async getProfile(username: string): Promise<ProfileView> {
+    return await fetchJson<ProfileView>(`/api/profiles/${encodeURIComponent(username)}/`);
   },
 
   __resetMocks() {

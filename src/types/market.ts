@@ -12,6 +12,7 @@ export type MarketListing = {
   genre: string;
   rarity: Rarity;
   seller: string;
+  sellerAvatarUrl?: string | null;
   buyer?: string | null;
   price: number;
   status: MarketListingStatus;

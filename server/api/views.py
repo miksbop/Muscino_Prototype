@@ -2,6 +2,7 @@ import random
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from datetime import date
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -40,16 +41,16 @@ def sleeves_list(request):
 
 @api_view(['GET'])
 def inventory_list(request):
-    # If authenticated, return only the user's inventory.
-    if request.user.is_authenticated:
+    username = request.query_params.get('owner')
+
+    # If owner query is passed, allow profile inventory lookup by username.
+    if username:
+        user = get_object_or_404(User, username=username)
+        items = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
+    elif request.user.is_authenticated:
         items = OwnedSong.objects.filter(owner=request.user).select_related('song').order_by('-obtained_at')
     else:
-        username = request.query_params.get('owner')
-        if username:
-            user = get_object_or_404(User, username=username)
-            items = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
-        else:
-            items = []
+        items = []
 
     serializer = OwnedSongSerializer(items, many=True)
     data = hydrate_songs_from_spotify(list(serializer.data))
@@ -93,6 +94,49 @@ def open_sleeve(request, sleeve_id):
     data = serializer.data
     hydrate_songs_from_spotify([data])
     return Response(data, status=status.HTTP_201_CREATED)
+
+
+
+
+@api_view(['GET'])
+def profile_detail(request, username):
+    user = get_object_or_404(User.objects.select_related('profile'), username=username)
+
+    owned_qs = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
+    songs_collected = owned_qs.count()
+
+    showcase_items = list(owned_qs[:20])
+    showcase_data = OwnedSongSerializer(showcase_items, many=True).data
+    hydrate_songs_from_spotify(showcase_data)
+
+    favorite_song = showcase_data[0] if showcase_data else None
+
+    try:
+        profile = user.profile
+        display_name = profile.display_name or user.username
+        wallet = profile.wallet
+        avatar_url = profile.avatar_url
+    except Profile.DoesNotExist:
+        display_name = user.username
+        wallet = 0
+        avatar_url = None
+
+    joined_date = user.date_joined.date()
+    days_registered = max((date.today() - joined_date).days, 0)
+
+    return Response({
+        'id': str(user.id),
+        'username': user.username,
+        'displayName': display_name,
+        'wallet': wallet,
+        'avatarUrl': avatar_url,
+        'joinedAt': user.date_joined.isoformat(),
+        'daysRegistered': days_registered,
+        'songsCollected': songs_collected,
+        'bio': '',
+        'favoriteSong': favorite_song,
+        'showcaseSongs': showcase_data,
+    })
 
 
 @api_view(['POST'])

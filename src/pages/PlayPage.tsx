@@ -67,6 +67,9 @@ export function PlayPage() {
   const [reelTiles, setReelTiles] = useState<OwnedSong[]>([]);
   const [finalIndex, setFinalIndex] = useState(0);
   const [reelTick, setReelTick] = useState(0);
+  const [hasActivatedBackground, setHasActivatedBackground] = useState(false);
+  const [panelIntroStage, setPanelIntroStage] = useState<"idle" | "left" | "right" | "sheen">("idle");
+  const panelIntroTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +90,36 @@ export function PlayPage() {
       timersRef.current = [];
     };
   }, []);
+
+  useEffect(() => {
+    const timerId = window.setTimeout(() => {
+      setHasActivatedBackground(true);
+    }, 60);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, []);
+
+  useEffect(() => {
+    panelIntroTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    panelIntroTimersRef.current = [];
+
+    if (loading) {
+      setPanelIntroStage("idle");
+      return;
+    }
+
+    setPanelIntroStage("left");
+
+    panelIntroTimersRef.current.push(window.setTimeout(() => setPanelIntroStage("right"), 220));
+    panelIntroTimersRef.current.push(window.setTimeout(() => setPanelIntroStage("sheen"), 480));
+
+    return () => {
+      panelIntroTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      panelIntroTimersRef.current = [];
+    };
+  }, [loading]);
 
   const sleevesForGenre = useMemo(
     () => sleeves.filter((sleeve) => sleeve.genre === genre),
@@ -170,10 +203,12 @@ export function PlayPage() {
   const previewB = current?.contents?.[1] ?? null;
 
   return (
-    <div className={["play-page h-full text-white", genre === "Pop" ? "is-pop" : "is-rock"].join(" ")}>
+    <div className={["play-page h-full text-white", `is-${genre.toLowerCase()}`].join(" ")}>
       <div className="play-bg" aria-hidden="true">
         <div className={["play-bg-layer play-bg-pop", genre === "Pop" ? "is-active" : ""].join(" ")} />
-        <div className={["play-bg-layer play-bg-rock", genre !== "Pop" ? "is-active" : ""].join(" ")} />
+        <div className={["play-bg-layer play-bg-rock", genre === "Rock" ? "is-active" : ""].join(" ")} />
+        <div className={["play-bg-layer play-bg-rap", genre === "Rap" ? "is-active" : ""].join(" ")} />
+        <div className={["play-bg-intro", hasActivatedBackground ? "is-faded" : ""].join(" ")} />
       </div>
 
       {overlayOpen && (
@@ -276,91 +311,115 @@ export function PlayPage() {
               className={[
                 "col-span-12 md:col-span-4 p-4 h-full min-h-0 overflow-hidden flex flex-col",
                 "rarity-rotating-border rarity-rim-sweep rarity-bg-wash",
+                "play-panel-pop",
+                panelIntroStage !== "idle" ? "is-visible" : "",
+                panelIntroStage === "sheen" ? "has-sheen" : "",
               ].join(" ")}
-              style={{ ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : genre === "Rap" ? "255 215 64" : "255 110 160" } as CSSProperties}
+              style={
+                {
+                  ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : genre === "Rap" ? "255 170 76" : "255 110 160",
+                  ["--sheen-rgb" as const]: genre === "Pop" ? "120 185 255" : genre === "Rap" ? "255 170 76" : "255 140 190",
+                } as CSSProperties
+              }
             >
-              <div className="play-left-header">
-                <div className="play-left-title">Sleeve Collections</div>
-                <div className="play-left-weekly">Refreshed Weekly!</div>
-              </div>
+              <div className="play-panel-content">
+                <div className="play-left-header">
+                  <div className="play-left-title">Sleeve Collections</div>
+                  <div className="play-left-weekly">Refreshed Weekly!</div>
+                </div>
 
-              <div className="mt-4 flex-1 min-h-0 flex flex-col items-center justify-center play-left-stage">
-                <div key={`${genre}-${switchTick}`} className="play-sleeve-stage">
-                  <div className={["play-peek", peekOpen ? "is-open" : ""].join(" ")}>
-                    {previewA?.coverUrl ? (
-                      <img className="play-peek-card play-peek-a" src={previewA.coverUrl} alt="" draggable={false} />
-                    ) : null}
-                    {previewB?.coverUrl ? (
-                      <img className="play-peek-card play-peek-b" src={previewB.coverUrl} alt="" draggable={false} />
-                    ) : null}
+                <div className="mt-4 flex-1 min-h-0 flex flex-col items-center justify-center play-left-stage">
+                  <div key={`${genre}-${switchTick}`} className="play-sleeve-stage">
+                    <div className={["play-peek", peekOpen ? "is-open" : ""].join(" ")}>
+                      {previewA?.coverUrl ? (
+                        <img className="play-peek-card play-peek-a" src={previewA.coverUrl} alt="" draggable={false} />
+                      ) : null}
+                      {previewB?.coverUrl ? (
+                        <img className="play-peek-card play-peek-b" src={previewB.coverUrl} alt="" draggable={false} />
+                      ) : null}
+                    </div>
+
+                    <img
+                      src={art.closed}
+                      alt=""
+                      className={["play-sleeve-img play-sleeve-closed", peekOpen ? "is-hidden" : ""].join(" ")}
+                      draggable={false}
+                    />
+                    <img
+                      src={art.open}
+                      alt=""
+                      className={["play-sleeve-img play-sleeve-open", peekOpen ? "is-visible" : ""].join(" ")}
+                      draggable={false}
+                    />
+
+                    <div className="play-sleeve-glow" />
                   </div>
 
-                  <img
-                    src={art.closed}
-                    alt=""
-                    className={["play-sleeve-img play-sleeve-closed", peekOpen ? "is-hidden" : ""].join(" ")}
-                    draggable={false}
-                  />
-                  <img
-                    src={art.open}
-                    alt=""
-                    className={["play-sleeve-img play-sleeve-open", peekOpen ? "is-visible" : ""].join(" ")}
-                    draggable={false}
-                  />
-
-                  <div className="play-sleeve-glow" />
+                  <div className="play-sleeve-label mt-6 text-5xl font-medium leading-none tracking-tight">
+                    <span className="play-sleeve-genre">{genre}</span>{" "}
+                    <span className="play-sleeve-word">Sleeve</span>
+                  </div>
                 </div>
 
-                <div className="play-sleeve-label mt-6 text-5xl font-medium leading-none tracking-tight">
-                  <span className="play-sleeve-genre">{genre}</span>{" "}
-                  <span className="play-sleeve-word">Sleeve</span>
+                <div className="play-left-controls">
+                  <button
+                    onClick={goPrev}
+                    disabled={!canPrev}
+                    className={["play-left-navbtn", !canPrev ? "is-disabled" : ""].join(" ")}
+                    aria-label="Previous sleeve"
+                  >
+                    ◀
+                  </button>
+
+                  <button
+                    onClick={goNext}
+                    disabled={!canNext}
+                    className={["play-left-navbtn", "is-primary", !canNext ? "is-disabled" : ""].join(" ")}
+                    aria-label="Next sleeve"
+                  >
+                    ▶
+                  </button>
                 </div>
-              </div>
-
-              <div className="play-left-controls">
-                <button
-                  onClick={goPrev}
-                  disabled={!canPrev}
-                  className={["play-left-navbtn", !canPrev ? "is-disabled" : ""].join(" ")}
-                  aria-label="Previous sleeve"
-                >
-                  ◀
-                </button>
-
-                <button
-                  onClick={goNext}
-                  disabled={!canNext}
-                  className={["play-left-navbtn", "is-primary", !canNext ? "is-disabled" : ""].join(" ")}
-                  aria-label="Next sleeve"
-                >
-                  ▶
-                </button>
               </div>
             </GlassPanel>
 
-            <GlassPanel className="col-span-12 md:col-span-8 p-4 h-full min-h-0 overflow-hidden flex flex-col">
-              <div className="text-white/60 mb-1 text-small">Contents:</div>
+            <GlassPanel
+              className={[
+                "col-span-12 md:col-span-8 p-4 h-full min-h-0 overflow-hidden flex flex-col",
+                "play-panel-pop play-panel-pop-right",
+                panelIntroStage === "right" || panelIntroStage === "sheen" ? "is-visible" : "",
+                panelIntroStage === "sheen" ? "has-sheen" : "",
+              ].join(" ")}
+              style={
+                {
+                  ["--sheen-rgb" as const]: genre === "Pop" ? "120 185 255" : genre === "Rap" ? "255 170 76" : "255 140 190",
+                } as CSSProperties
+              }
+            >
+              <div className="play-panel-content">
+                <div className="text-white/60 mb-1 text-small">Contents:</div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-6 muscino-scroll">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
-                  {(current?.contents ?? []).map((song) => (
-                    <SongCard key={song.id} song={song} selected={false} onSelect={() => {}} />
-                  ))}
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-6 muscino-scroll">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
+                    {(current?.contents ?? []).map((song) => (
+                      <SongCard key={song.id} song={song} selected={false} onSelect={() => {}} />
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div className="pt-3 flex items-center justify-end gap-3">
-                <button
-                  className="px-4 py-1 rounded-xl bg-blue-500/70 border border-blue-300/20 hover:bg-blue-500/80 transition text-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!current}
-                  onClick={handleOpen}
-                >
-                  Open
-                </button>
+                <div className="pt-3 flex items-center justify-end gap-3">
+                  <button
+                    className="play-open-btn px-4 py-1 rounded-xl text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!current}
+                    onClick={handleOpen}
+                  >
+                    Open
+                  </button>
 
-                <div className="text-lg text-white/60">
-                  {current ? `${current.cost}` : ""}
-                  <span className="ml-2 text-blue-400">⛃</span>
+                  <div className="text-lg text-white/60">
+                    {current ? `${current.cost}` : ""}
+                    <span className="ml-2 text-blue-400">⛃</span>
+                  </div>
                 </div>
               </div>
             </GlassPanel>
