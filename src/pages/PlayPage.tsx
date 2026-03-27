@@ -7,6 +7,7 @@ import { api } from "../services/api";
 import { useAuth } from "../context/useAuth";
 import type { OwnedSong } from "../types/song";
 import type { Sleeve } from "../types/sleeve";
+import { rarityRgb } from "../types/rarity";
 
 import sleevePop from "../pictures/Pictures/sleeve_pop.png";
 import sleevePopOpen from "../pictures/Pictures/sleeve_pop_open.png";
@@ -27,6 +28,10 @@ const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
 
 // Must match CSS reel animation duration.
 const REEL_DURATION_MS = 4200;
+const CARD_INTRO_STAGGER_MS = 88;
+const CARD_INTRO_BASE_MS = 340;
+const CARD_INTRO_START_DELAY_MS = 220;
+const CARD_INTRO_WAVE_COLUMNS = 4;
 
 function buildReel(items: OwnedSong[], result: OwnedSong) {
   const pool = items.length ? items : [result];
@@ -70,6 +75,10 @@ export function PlayPage() {
   const [hasActivatedBackground, setHasActivatedBackground] = useState(false);
   const [panelIntroStage, setPanelIntroStage] = useState<"idle" | "left" | "right" | "sheen">("idle");
   const panelIntroTimersRef = useRef<number[]>([]);
+  const [cardIntroActive, setCardIntroActive] = useState(false);
+  const hasPlayedCardIntroRef = useRef(false);
+  const [leftPanelSheenTick, setLeftPanelSheenTick] = useState(0);
+  const hasInitializedGenreRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +139,29 @@ export function PlayPage() {
   const canPrev = genreIndex > 0;
   const canNext = genreIndex < PLAY_GENRES.length - 1;
 
+  useEffect(() => {
+    if (loading || hasPlayedCardIntroRef.current) return;
+
+    const songCount = current?.contents?.length ?? 0;
+    if (!songCount) return;
+
+    const startTimerId = window.setTimeout(() => {
+      setCardIntroActive(true);
+      hasPlayedCardIntroRef.current = true;
+    }, CARD_INTRO_START_DELAY_MS);
+
+    const waveSteps = Math.max(0, Math.min(songCount, CARD_INTRO_WAVE_COLUMNS) - 1);
+    const duration = Math.max(460, waveSteps * CARD_INTRO_STAGGER_MS + CARD_INTRO_BASE_MS);
+    const stopTimerId = window.setTimeout(() => {
+      setCardIntroActive(false);
+    }, CARD_INTRO_START_DELAY_MS + duration);
+
+    return () => {
+      window.clearTimeout(startTimerId);
+      window.clearTimeout(stopTimerId);
+    };
+  }, [loading, current]);
+
   function runSwitchAnimation() {
     setSwitchTick((tick) => tick + 1);
     setPeekOpen(false);
@@ -152,6 +184,13 @@ export function PlayPage() {
 
   useEffect(() => {
     runSwitchAnimation();
+
+    if (!hasInitializedGenreRef.current) {
+      hasInitializedGenreRef.current = true;
+      return;
+    }
+
+    setLeftPanelSheenTick((tick) => tick + 1);
   }, [genreIndex]);
 
   function closeOverlay() {
@@ -307,13 +346,13 @@ export function PlayPage() {
         ) : (
           <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
             <GlassPanel
-              key={`play-left-${genre}-${switchTick}`}
+              key={`play-left-${genre}-${switchTick}-${leftPanelSheenTick}`}
               className={[
                 "col-span-12 md:col-span-4 p-4 h-full min-h-0 overflow-hidden flex flex-col",
                 "rarity-rotating-border rarity-rim-sweep rarity-bg-wash",
                 "play-panel-pop",
                 panelIntroStage !== "idle" ? "is-visible" : "",
-                panelIntroStage === "sheen" ? "has-sheen" : "",
+                leftPanelSheenTick > 0 ? "has-sheen" : "",
               ].join(" ")}
               style={
                 {
@@ -388,21 +427,28 @@ export function PlayPage() {
                 "col-span-12 md:col-span-8 p-4 h-full min-h-0 overflow-hidden flex flex-col",
                 "play-panel-pop play-panel-pop-right",
                 panelIntroStage === "right" || panelIntroStage === "sheen" ? "is-visible" : "",
-                panelIntroStage === "sheen" ? "has-sheen" : "",
               ].join(" ")}
-              style={
-                {
-                  ["--sheen-rgb" as const]: genre === "Pop" ? "120 185 255" : genre === "Rap" ? "255 170 76" : "255 140 190",
-                } as CSSProperties
-              }
             >
               <div className="play-panel-content">
                 <div className="text-white/60 mb-1 text-small">Contents:</div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-6 muscino-scroll">
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
-                    {(current?.contents ?? []).map((song) => (
-                      <SongCard key={song.id} song={song} selected={false} onSelect={() => {}} />
+                    {(current?.contents ?? []).map((song, index) => (
+                      <SongCard
+                        key={song.id}
+                        song={song}
+                        selected={false}
+                        onSelect={() => {}}
+                        className={cardIntroActive ? "play-song-card-intro" : ""}
+                        style={
+                          {
+                            ["--intro-delay" as const]: `${(index % CARD_INTRO_WAVE_COLUMNS) * CARD_INTRO_STAGGER_MS}ms`,
+                            ["--intro-duration" as const]: "340ms",
+                            ["--rarity-rgb" as const]: rarityRgb(song.rarity),
+                          } as CSSProperties
+                        }
+                      />
                     ))}
                   </div>
                 </div>

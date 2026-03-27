@@ -1,0 +1,15 @@
+.market-page-unscaled {
+  zoom: calc(1 / var(--ui-scale));
+  width: 100%;
+  height: 100%;
+}
+
+/* Firefox fallback (no zoom support). */
+@supports not (zoom: 1) {
+  .market-page-unscaled {
+    transform: scale(calc(1 / var(--ui-scale)));
+    transform-origin: top left;
+    width: 100%;
+    height: 100%;
+  }
+}

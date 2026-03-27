@@ -14,9 +14,11 @@ import { ProfilePage } from "./pages/ProfilePage";
 import "./styles/index.css"; // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
 import "./styles/shared/ui.css"; // shared utilities (new drawer)
 import "./styles/shared/effects.css"; // shared effects (new drawer)
+import "./styles/shared/topnav.css"; // TopNav interactive pixel-wave effect
 import "./styles/pages/home.css"; // Home page styles
 import "./styles/pages/collection.css"; // Collection page style
 import "./styles/pages/play.css"; // Play page style
+import "./styles/pages/market.css"; // Market page scale corrections
 
 
 const router = createBrowserRouter([

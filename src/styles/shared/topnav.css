@@ -1,0 +1,99 @@
+.nav-interactive-link {
+  --eq-intensity: 0;
+}
+
+.nav-interactive-link__baseline {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 72%;
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0), rgba(56, 189, 248, 0.5), rgba(56, 189, 248, 0));
+  opacity: calc(0.18 + (var(--eq-intensity) * 0.5));
+  transition: opacity 140ms ease;
+  pointer-events: none;
+}
+
+.nav-interactive-link__bars {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 22px;
+  z-index: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1px;
+  pointer-events: none;
+  opacity: calc(var(--eq-intensity) * 0.88);
+  transition: opacity 100ms ease;
+}
+
+.nav-interactive-link__bar {
+  --bar-max-height: calc(6px + (var(--eq-intensity) * 12px));
+  width: 3px;
+  height: calc(2px + (var(--eq-intensity) * 2px));
+  transform-origin: center bottom;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #8b5cf6 0%, #38bdf8 100%);
+  box-shadow:
+    0 0 calc(var(--eq-intensity) * 8px) rgba(56, 189, 248, 0.55),
+    0 0 calc(var(--eq-intensity) * 10px) rgba(139, 92, 246, 0.28);
+  animation: nav-link-eq-bounce 0.95s steps(6, end) infinite;
+  animation-delay: calc(var(--bar-index) * -80ms);
+  transition:
+    height 90ms linear,
+    opacity 150ms ease,
+    box-shadow 140ms ease;
+}
+
+.nav-interactive-link__bar:nth-child(1),
+.nav-interactive-link__bar:nth-child(13) {
+  opacity: 0.18;
+}
+
+.nav-interactive-link__bar:nth-child(2),
+.nav-interactive-link__bar:nth-child(12) {
+  opacity: 0.28;
+}
+
+.nav-interactive-link__bar:nth-child(3),
+.nav-interactive-link__bar:nth-child(11) {
+  opacity: 0.42;
+}
+
+.nav-interactive-link__bar:nth-child(4),
+.nav-interactive-link__bar:nth-child(10) {
+  opacity: 0.56;
+}
+
+.nav-interactive-link__bar:nth-child(5),
+.nav-interactive-link__bar:nth-child(9) {
+  opacity: 0.72;
+}
+
+.nav-interactive-link__bar:nth-child(6),
+.nav-interactive-link__bar:nth-child(8) {
+  opacity: 0.88;
+}
+
+.nav-interactive-link__bar:nth-child(7) {
+  opacity: 1;
+}
+
+@keyframes nav-link-eq-bounce {
+  0% {
+    height: calc(2px + (var(--eq-intensity) * 2px));
+  }
+  30% {
+    height: calc(var(--bar-max-height) * 0.95);
+  }
+  60% {
+    height: calc(var(--bar-max-height) * 0.55);
+  }
+  100% {
+    height: calc(3px + (var(--eq-intensity) * 3px));
+  }
+}

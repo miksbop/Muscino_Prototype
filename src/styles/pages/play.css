@@ -120,6 +120,37 @@
   }
 }
 
+.play-song-card-intro {
+  animation: playSongCardIntroGlow var(--intro-duration, 320ms) ease-out var(--intro-delay, 0ms) 1 both;
+}
+
+.play-song-card-intro::before {
+  animation: playSongCardIntroOverlay var(--intro-duration, 320ms) ease-out var(--intro-delay, 0ms) 1 both;
+}
+
+@keyframes playSongCardIntroGlow {
+  0% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  42% {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow:
+      0 0 24px rgb(var(--rarity-rgb, 150 180 255) / 0.34),
+      0 0 42px rgb(var(--rarity-rgb, 150 180 255) / 0.2);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+@keyframes playSongCardIntroOverlay {
+  0% { opacity: 0; }
+  45% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
 /* constant vignette / depth on top */
 .play-bg::after {
   content: "";
@@ -668,6 +699,8 @@
     transform: none;
   }
   .play-panel-pop.has-sheen .play-panel-content::after { animation: none; }
+  .play-song-card-intro,
+  .play-song-card-intro::before { animation: none; }
   .play-bg-layer { transition: none; }
   .play-sleeve-closed,
   .play-sleeve-open,

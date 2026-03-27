@@ -1,5 +1,6 @@
 import type { OwnedSong } from "../types/song";
 import type { SleeveSong } from "../types/sleeve";
+import type { CSSProperties } from "react";
 import { RarityPill } from "./RarityPill";
 import {
   rarityBorderClass,
@@ -16,14 +17,17 @@ type SongCardProps = {
   song: SongCardData;
   selected?: boolean;
   onSelect?: () => void;
+  className?: string;
+  style?: CSSProperties;
 };
 
-export function SongCard({ song, selected = false, onSelect }: SongCardProps) {
+export function SongCard({ song, selected = false, onSelect, className, style }: SongCardProps) {
   const hasCover = Boolean(song.coverUrl && song.coverUrl.trim().length > 0);
 
   return (
     <button
       onClick={onSelect}
+      style={style}
       className={[
         "relative overflow-hidden z-0",
         "text-left rounded-2xl border p-2 transition",
@@ -46,6 +50,7 @@ export function SongCard({ song, selected = false, onSelect }: SongCardProps) {
               rarityBorderClass(song.rarity, "subtle"),
               rarityHoverBorderClass(song.rarity),
             ].join(" "),
+        className ?? "",
       ].join(" ")}
     >
       {song.rarity === "Legendary" && selected && <div className="muscino-legendary-sheen" />}

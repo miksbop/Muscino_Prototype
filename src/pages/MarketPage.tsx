@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { api } from "../services/api";
 import type { MarketListing } from "../types/market";
 import { useAuth } from "../context/useAuth";
 import { rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { MarqueeText } from "../components/MarqueeText";
+import GlassPanel from "../components/GlassPanel";
 
 type SortDirection = "asc" | "desc";
 
 const DEFAULT_AVATAR =
   "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
 const ROWS_PER_PAGE = 6;
+const BASE_MARKET_WIDTH = 1680;
+const BASE_MARKET_HEIGHT = 920;
+const VIEWPORT_GUTTER_X = 64;
+const VIEWPORT_GUTTER_Y = 72;
 
 export function MarketPage() {
   const { user, refreshUser } = useAuth();
@@ -21,6 +27,7 @@ export function MarketPage() {
   const [genreFilter, setGenreFilter] = useState<string>("all");
   const [costSortDirection, setCostSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
 
   const loadListings = async () => {
     setLoading(true);
@@ -34,6 +41,22 @@ export function MarketPage() {
 
   useEffect(() => {
     void loadListings();
+  }, []);
+
+  useEffect(() => {
+    const computeScale = () => {
+      const navHeight = 56;
+      const availableWidth = window.innerWidth - VIEWPORT_GUTTER_X;
+      const availableHeight = window.innerHeight - navHeight - VIEWPORT_GUTTER_Y;
+      const scaleX = availableWidth / BASE_MARKET_WIDTH;
+      const scaleY = availableHeight / BASE_MARKET_HEIGHT;
+
+      setFitScale(Math.min(scaleX, scaleY, 1));
+    };
+
+    computeScale();
+    window.addEventListener("resize", computeScale);
+    return () => window.removeEventListener("resize", computeScale);
   }, []);
 
   const buyListing = async (listingId: number) => {
@@ -104,166 +127,187 @@ export function MarketPage() {
     "grid grid-cols-[80px_minmax(0,2.2fr)_minmax(0,1.9fr)_minmax(0,1.35fr)_120px_144px] items-center";
 
   return (
-    <div className="h-full bg-neutral-950 text-white overflow-hidden">
-      <div className="h-full max-w-7xl mx-auto px-6 pt-6 pb-6 min-h-0">
-        {loading ? (
-          <div className="h-full grid place-items-center">
-            <LoadingSpinner />
-          </div>
-        ) : filteredListings.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-neutral-300">No matching listings found.</div>
-        ) : (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 h-full min-h-0 flex flex-col">
-            <div className="flex items-center justify-between gap-3 px-3 pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2 text-sm text-neutral-300">
-                <label htmlFor="genre-filter">Genre:</label>
-                <select
-                  id="genre-filter"
-                  value={genreFilter}
-                  onChange={(event) => {
-                    setGenreFilter(event.target.value);
-                  }}
-                  className="rounded-md border border-white/20 bg-neutral-900 px-2 py-1"
-                >
-                  {genreOptions.map((genre) => (
-                    <option key={genre} value={genre}>
-                      {genre === "all" ? "All" : genre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <input
-                type="search"
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                }}
-                placeholder="Search..."
-                className="w-[26rem] max-w-[42%] rounded-md border border-white/20 bg-neutral-900 px-3 py-1.5 text-sm"
-              />
-            </div>
-
-            <div className={`${rowGridClass} text-neutral-400 text-sm px-3 py-3 border-b border-white/10`}>
-              <div>Cover</div>
-              <div>Song Name</div>
-              <div>Artist</div>
-              <div>Listed By</div>
-              <button
-                type="button"
-                onClick={() => {
-                  setCostSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-                }}
-                className="text-left hover:text-white"
-              >
-                Cost {costSortDirection === "asc" ? "↑" : "↓"}
-              </button>
-              <div />
-            </div>
-
-            <div className="flex-1 min-h-0 flex flex-col gap-3 py-3">
-              {pagedListings.map((listing) => {
-                const isOwn = user?.username === listing.seller;
-                const buyingThis = buyingId === listing.id;
-
-                return (
-                  <div
-                    key={listing.id}
-                    className={`${rowGridClass} rounded-lg bg-black/30 border border-white/5 px-3 py-3 min-h-[92px]`}
-                  >
-                    <div className="flex items-center justify-center">
-                      <img
-                        src={listing.coverUrl}
-                        alt=""
-                        className="w-16 h-16 rounded-md object-cover border border-white/10"
-                        draggable={false}
-                      />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="font-semibold text-[1.02rem] leading-tight truncate">{listing.title}</div>
-                      <div className="text-sm text-neutral-400 truncate mt-0.5">
-                        {listing.genre} · <span className={rarityTextClass(listing.rarity)}>{listing.rarity}</span>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0">
-                      <MarqueeText text={listing.artist} className="text-[1.03rem] text-neutral-200" speedPxPerSec={24} delayMs={900} />
-                    </div>
-
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src={listing.sellerAvatarUrl || DEFAULT_AVATAR}
-                        alt={`${listing.seller} avatar`}
-                        className="w-11 h-11 rounded-md border border-white/20 object-cover"
-                        draggable={false}
-                      />
-                      <span className="text-[1rem] text-neutral-200 truncate">{listing.seller}</span>
-                    </div>
-
-                    <div className="text-blue-300 font-semibold tabular-nums text-[1.03rem] truncate">{listing.price}</div>
-
-                    <div className="flex justify-start">
-                      <button
-                        type="button"
-                        disabled={isOwn || buyingId !== null}
-                        onClick={() => {
-                          void buyListing(listing.id);
-                        }}
-                        className="px-4 py-2 rounded-md text-[0.95rem] border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {isOwn ? "Your listing" : buyingThis ? "Buying..." : "Purchase"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {Array.from({ length: fillerRows }).map((_, index) => (
-                <div
-                  key={`empty-market-row-${index}`}
-                  aria-hidden="true"
-                  className={`${rowGridClass} rounded-lg bg-black/20 border border-white/5 px-3 py-3 min-h-[92px]`}
-                >
-                  <div className="flex items-center justify-center">
-                    <div className="w-16 h-16 rounded-md border border-white/10 bg-white/5" />
-                  </div>
-                  <div className="text-neutral-500">...</div>
-                  <div className="text-neutral-500">...</div>
-                  <div className="text-neutral-500">...</div>
-                  <div className="text-neutral-500">...</div>
-                  <div />
+    <div className="flex h-full items-center justify-center overflow-hidden bg-neutral-950 px-8 py-8 text-white">
+      <div
+        style={{
+          width: `${BASE_MARKET_WIDTH * fitScale}px`,
+          height: `${BASE_MARKET_HEIGHT * fitScale}px`,
+        }}
+      >
+        <div
+          className="origin-top-left"
+          style={{
+            width: `${BASE_MARKET_WIDTH}px`,
+            height: `${BASE_MARKET_HEIGHT}px`,
+            transform: `scale(${fitScale})`,
+          }}
+        >
+          <div className="market-page-unscaled h-full w-full">
+            <GlassPanel
+              className="h-full min-h-0 flex flex-col p-4 rarity-rotating-border rarity-rim-sweep rarity-bg-wash"
+              style={{ ["--rarity-rgb" as const]: "255 255 255" } as CSSProperties}
+            >
+              {loading ? (
+                <div className="h-full grid place-items-center">
+                  <LoadingSpinner />
                 </div>
-              ))}
-            </div>
+              ) : filteredListings.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-neutral-300">No matching listings found.</div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3 px-3 pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2 text-sm text-neutral-300">
+                      <label htmlFor="genre-filter">Genre:</label>
+                      <select
+                        id="genre-filter"
+                        value={genreFilter}
+                        onChange={(event) => {
+                          setGenreFilter(event.target.value);
+                        }}
+                        className="rounded-md border border-white/20 bg-neutral-900 px-2 py-1"
+                      >
+                        {genreOptions.map((genre) => (
+                          <option key={genre} value={genre}>
+                            {genre === "all" ? "All" : genre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-            <div className="pt-2 border-t border-white/10 flex justify-end items-center gap-1 text-sm">
-              {paginationPages.map((page, index) => {
-                const previousPage = paginationPages[index - 1];
-                const showGap = previousPage !== undefined && page - previousPage > 1;
+                    <input
+                      type="search"
+                      value={search}
+                      onChange={(event) => {
+                        setSearch(event.target.value);
+                      }}
+                      placeholder="Search..."
+                      className="w-[26rem] max-w-[42%] rounded-md border border-white/20 bg-neutral-900 px-3 py-1.5 text-sm"
+                    />
+                  </div>
 
-                return (
-                  <div key={page} className="flex items-center gap-1">
-                    {showGap ? <span className="px-1 text-neutral-500">...</span> : null}
+                  <div className={`${rowGridClass} text-neutral-400 text-sm px-3 py-3 border-b border-white/10`}>
+                    <div>Cover</div>
+                    <div>Song Name</div>
+                    <div>Artist</div>
+                    <div>Listed By</div>
                     <button
                       type="button"
                       onClick={() => {
-                        setCurrentPage(page);
+                        setCostSortDirection((current) => (current === "asc" ? "desc" : "asc"));
                       }}
-                      className={`px-2 py-1 rounded border ${
-                        page === currentPage
-                          ? "border-blue-400 bg-blue-500/20 text-blue-200"
-                          : "border-white/20 bg-white/5 hover:bg-white/10"
-                      }`}
+                      className="text-left hover:text-white"
                     >
-                      {page}
+                      Cost {costSortDirection === "asc" ? "↑" : "↓"}
                     </button>
+                    <div />
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col gap-3 py-3">
+                    {pagedListings.map((listing) => {
+                      const isOwn = user?.username === listing.seller;
+                      const buyingThis = buyingId === listing.id;
+
+                      return (
+                        <div
+                          key={listing.id}
+                          className={`${rowGridClass} rounded-lg bg-black/30 border border-white/5 px-3 py-3 min-h-[92px]`}
+                        >
+                          <div className="flex items-center justify-center">
+                            <img
+                              src={listing.coverUrl}
+                              alt=""
+                              className="w-16 h-16 rounded-md object-cover border border-white/10"
+                              draggable={false}
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="font-semibold text-[1.02rem] leading-tight truncate">{listing.title}</div>
+                            <div className="text-sm text-neutral-400 truncate mt-0.5">
+                              {listing.genre} · <span className={rarityTextClass(listing.rarity)}>{listing.rarity}</span>
+                            </div>
+                          </div>
+
+                          <div className="min-w-0">
+                            <MarqueeText text={listing.artist} className="text-[1.03rem] text-neutral-200" speedPxPerSec={24} delayMs={900} />
+                          </div>
+
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <img
+                              src={listing.sellerAvatarUrl || DEFAULT_AVATAR}
+                              alt={`${listing.seller} avatar`}
+                              className="w-11 h-11 rounded-md border border-white/20 object-cover"
+                              draggable={false}
+                            />
+                            <span className="text-[1rem] text-neutral-200 truncate">{listing.seller}</span>
+                          </div>
+
+                          <div className="text-blue-300 font-semibold tabular-nums text-[1.03rem] truncate">{listing.price}</div>
+
+                          <div className="flex justify-start">
+                            <button
+                              type="button"
+                              disabled={isOwn || buyingId !== null}
+                              onClick={() => {
+                                void buyListing(listing.id);
+                              }}
+                              className="px-4 py-2 rounded-md text-[0.95rem] border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {isOwn ? "Your listing" : buyingThis ? "Buying..." : "Purchase"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {Array.from({ length: fillerRows }).map((_, index) => (
+                      <div
+                        key={`empty-market-row-${index}`}
+                        aria-hidden="true"
+                        className={`${rowGridClass} rounded-lg bg-black/20 border border-white/5 px-3 py-3 min-h-[92px]`}
+                      >
+                        <div className="flex items-center justify-center">
+                          <div className="w-16 h-16 rounded-md border border-white/10 bg-white/5" />
+                        </div>
+                        <div className="text-neutral-500">...</div>
+                        <div className="text-neutral-500">...</div>
+                        <div className="text-neutral-500">...</div>
+                        <div className="text-neutral-500">...</div>
+                        <div />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-2 border-t border-white/10 flex justify-end items-center gap-1 text-sm">
+                    {paginationPages.map((page, index) => {
+                      const previousPage = paginationPages[index - 1];
+                      const showGap = previousPage !== undefined && page - previousPage > 1;
+
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showGap ? <span className="px-1 text-neutral-500">...</span> : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCurrentPage(page);
+                            }}
+                            className={`px-2 py-1 rounded border ${
+                              page === currentPage
+                                ? "border-blue-400 bg-blue-500/20 text-blue-200"
+                                : "border-white/20 bg-white/5 hover:bg-white/10"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </GlassPanel>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
