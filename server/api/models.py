@@ -52,6 +52,10 @@ class Profile(models.Model):
     wallet = models.IntegerField(default=100)
     last_daily_bonus_claimed_at = models.DateField(blank=True, null=True)
     avatar_url = models.CharField(max_length=1000, blank=True, null=True)
+    avatar_image = models.BinaryField(blank=True, null=True)
+    avatar_mime_type = models.CharField(max_length=100, blank=True, null=True)
+    bio = models.TextField(blank=True, default='')
+    theme_color = models.CharField(max_length=7, blank=True, default='#737373')
 
     def __str__(self):
         return f"Profile for {self.user.username}"

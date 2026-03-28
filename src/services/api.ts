@@ -187,6 +187,33 @@ export const api = {
     return await fetchJson<ProfileView>(`/api/profiles/${encodeURIComponent(username)}/`);
   },
 
+  async updateProfile(
+    username: string,
+    input: { bio?: string; themeColor?: string; avatarFile?: File | null },
+  ): Promise<ProfileView> {
+    const formData = new FormData();
+    if (typeof input.bio === "string") formData.append("bio", input.bio);
+    if (typeof input.themeColor === "string") formData.append("themeColor", input.themeColor);
+    if (input.avatarFile) formData.append("avatar", input.avatarFile);
+
+    const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/edit/`, {
+      method: "PATCH",
+      credentials: "include",
+      body: formData,
+    });
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const data = await res.json();
+        detail = data.detail || data.message || "";
+      } catch {
+        detail = await res.text().catch(() => "");
+      }
+      throw new Error(detail || `Request failed ${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as ProfileView;
+  },
+
   __resetMocks() {
     mockInventory = [...MOCK_INVENTORY];
   },

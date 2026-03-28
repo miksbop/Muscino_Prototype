@@ -1,6 +1,18 @@
+import base64
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Song, Sleeve, SleeveSong, OwnedSong, MarketListing
+
+
+def _profile_avatar_data_url(profile):
+    if profile.avatar_image and profile.avatar_mime_type:
+        try:
+            raw = bytes(profile.avatar_image)
+            encoded = base64.b64encode(raw).decode('ascii')
+            return f"data:{profile.avatar_mime_type};base64,{encoded}"
+        except Exception:
+            return profile.avatar_url
+    return profile.avatar_url
 
 
 class SongSerializer(serializers.ModelSerializer):
@@ -77,7 +89,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_avatarUrl(self, obj):
         try:
-            return obj.profile.avatar_url
+            return _profile_avatar_data_url(obj.profile)
         except Exception:
             return None
 
@@ -98,7 +110,7 @@ class MarketListingSerializer(serializers.ModelSerializer):
 
     def get_sellerAvatarUrl(self, obj):
         try:
-            return obj.seller.profile.avatar_url
+            return _profile_avatar_data_url(obj.seller.profile)
         except Exception:
             return None
         

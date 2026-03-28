@@ -330,12 +330,17 @@
   position: relative;
   width: min(1160px, calc(100vw - 1.5rem));
   padding: 1rem;
+  margin-top: clamp(0.85rem, 2vh, 1.35rem);
 }
 
-.muscino-opening-panel { padding: 1.25rem; }
+.muscino-opening-panel {
+  padding: 1.25rem;
+  height: min(740px, 82vh);
+}
 .muscino-opening-sequence {
   position: relative;
-  min-height: min(560px, 70vh);
+  height: 100%;
+  min-height: 100%;
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -372,7 +377,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.1rem;
+  gap: 1.05rem;
   width: min(1080px, 96vw);
   opacity: 0;
   transform: translateY(22px) scale(0.97);
@@ -395,20 +400,20 @@
 .muscino-opening-reveal-stage {
   position: relative;
   width: min(1040px, 95vw);
-  height: clamp(260px, 46vh, 430px);
+  height: clamp(240px, 40vh, 370px);
   display: grid;
   place-items: center;
 }
 
 .muscino-opening-reveal-stage.is-revealed .muscino-reel {
-  transform: translateY(112px) scale(0.95);
-  opacity: 0.3;
+  transform: translateY(102px) scale(1);
+  opacity: 0.26;
 }
 
 .muscino-opening-current {
   width: min(1040px, 94vw);
-  min-height: 3.4rem;
-  font-size: clamp(1.8rem, 2.8vw, 3rem);
+  min-height: 2.4rem;
+  font-size: clamp(1.7rem, 2.4vw, 2.6rem);
   line-height: 1.1;
   font-weight: 520;
   color: rgb(var(--rarity-rgb, 96 165 250) / 0.97);
@@ -422,16 +427,16 @@
 }
 
 .muscino-opening-current.is-revealed {
-  font-size: clamp(2.1rem, 3.2vw, 3.5rem);
-  margin-top: 0;
+  font-size: clamp(2rem, 2.9vw, 3.25rem);
+  margin-top: 1.35rem;
 }
 
 .muscino-opening-featured {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -54%) scale(0.9);
-  width: min(440px, 56vw);
+  transform: translate(-50%, -50%) scale(0.9);
+  width: min(430px, 50vw);
   aspect-ratio: 1 / 1;
   display: grid;
   place-items: center;
@@ -492,9 +497,9 @@
 .muscino-opening-soundbar {
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: calc(50% + 16px);
   transform: translate(-50%, -50%);
-  width: min(980px, 90vw);
+  width: min(860px, 82vw);
   z-index: 1;
   display: flex;
   align-items: center;
@@ -559,6 +564,34 @@
   opacity: 0;
   width: 0;
   margin: 0 28px;
+}
+
+.muscino-opening-action {
+  border-radius: 0.85rem;
+  font-size: 1.95rem;
+  line-height: 1;
+  padding: 0.46rem 1.15rem;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.muscino-opening-action--confirm {
+  background: rgb(59 130 246 / 0.78);
+  border: 1px solid rgb(147 197 253 / 0.25);
+}
+
+.muscino-opening-action--confirm:hover {
+  background: rgb(59 130 246 / 0.92);
+  transform: translateY(-1px);
+}
+
+.muscino-opening-action--skip {
+  background: rgb(255 255 255 / 0.10);
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.muscino-opening-action--skip:hover {
+  border-color: rgb(255 255 255 / 0.25);
+  transform: translateY(-1px);
 }
 
 @keyframes muscinoDropSleeve {
@@ -1086,11 +1119,11 @@
 @keyframes muscino-featured-enter {
   from {
     opacity: 0;
-    transform: translate(-50%, -52%) scale(0.9);
+    transform: translate(-50%, -50%) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -54%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 

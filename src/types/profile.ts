@@ -10,6 +10,7 @@ export type ProfileView = {
   daysRegistered: number;
   songsCollected: number;
   bio: string;
+  themeColor: string;
   favoriteSong: OwnedSong | null;
   showcaseSongs: OwnedSong[];
 };
