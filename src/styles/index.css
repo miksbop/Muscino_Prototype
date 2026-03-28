@@ -16,13 +16,14 @@ body {
   height: 100%;
   overflow: hidden;
   font-size: calc(16px * var(--ui-scale));
-  font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: var(--app-font-family, "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif);
 }
 
 :root {
   /* Global scale token. Keeping this as a variable allows tuning while
      preserving component-level `rem` usage and avoiding layout rewrites. */
   --ui-scale: 1.44;
+  --app-font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 
   --topnav-h: 3.5rem;
   --page-pad: 1.5rem;
@@ -46,24 +47,43 @@ body {
      Motion rules live in page/component stylesheets. */
 }
 
+
 @font-face {
-  font-family: "Weezer";
-  src: url("/fonts/Weezer/weezerfont.ttf") format("truetype");
+  font-family: "Outfit";
+  src: url("/fonts/Outfit/Outfit-VariableFont_wght.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/Poppins/Poppins-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
-  font-family: "Weezer";
-  src: url("/fonts/Weezer/weezerfont.ttf") format("truetype");
+  font-family: "Poppins";
+  src: url("/fonts/Poppins/Poppins-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
-  font-family: "Weezer";
-  src: url("/fonts/Weezer/weezerfont.ttf") format("truetype");
+  font-family: "Poppins";
+  src: url("/fonts/Poppins/Poppins-SemiBold.ttf") format("truetype");
   font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/Poppins/Poppins-Bold.ttf") format("truetype");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }

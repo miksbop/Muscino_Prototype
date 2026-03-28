@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from .models import Sleeve, SleeveSong, OwnedSong, Song, MarketListing, Profile
 from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer, MarketListingSerializer
-from .spotify import hydrate_songs_from_spotify
+from .spotify import SpotifyClient, hydrate_songs_from_spotify
 
 RARITY_WEIGHT = {
     'Common': 35,
@@ -19,6 +19,63 @@ RARITY_WEIGHT = {
     'Epic': 15,
     'Legendary': 5,
 }
+
+
+RARITY_RANK = {
+    'Common': 1,
+    'Uncommon': 2,
+    'Rare': 3,
+    'Epic': 4,
+    'Legendary': 5,
+}
+
+
+def _roll_rarity_from_inputs(input_rarities: list[str]) -> str:
+    bonus = max(0, sum(RARITY_RANK.get(r, 1) for r in input_rarities) - 3)
+    weights = {
+        'Common': max(5.0, 50.0 - (3.0 * bonus)),
+        'Uncommon': max(8.0, 25.0 - (1.2 * bonus)),
+        'Rare': 15.0 + (1.5 * bonus),
+        'Epic': 8.0 + (1.7 * bonus),
+        'Legendary': 2.0 + (1.0 * bonus),
+    }
+
+    total = sum(weights.values())
+    roll = random.random() * total
+    chosen = 'Common'
+    for rarity, weight in weights.items():
+        roll -= weight
+        if roll <= 0:
+            chosen = rarity
+            break
+    return chosen
+
+
+def _upsert_song_from_spotify_track(track) -> Song:
+    defaults = {
+        'title': track.title or track.track_id,
+        'artist': track.artist or 'Unknown Artist',
+        'cover_url': track.cover_url,
+        'genre': 'Unknown',
+        'spotify_track_id': track.track_id,
+        'spotify_url': track.spotify_url,
+    }
+
+    song, created = Song.objects.get_or_create(
+        id=f"spotify:{track.track_id}",
+        defaults=defaults,
+    )
+
+    if not created:
+        changed_fields = []
+        for field, value in defaults.items():
+            if value and getattr(song, field) != value:
+                setattr(song, field, value)
+                changed_fields.append(field)
+        if changed_fields:
+            song.save(update_fields=changed_fields)
+
+    return song
 
 
 @api_view(['GET'])
@@ -96,6 +153,64 @@ def open_sleeve(request, sleeve_id):
     return Response(data, status=status.HTTP_201_CREATED)
 
 
+@api_view(['POST'])
+def reroll_inventory_song(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    owned_song_ids = request.data.get('ownedSongIds')
+    artist_keyword = (request.data.get('artistKeyword') or '').strip()
+
+    if not isinstance(owned_song_ids, list) or len(owned_song_ids) != 3:
+        return Response({'detail': 'exactly 3 ownedSongIds are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not artist_keyword:
+        return Response({'detail': 'artistKeyword is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        owned_song_ids = [int(song_id) for song_id in owned_song_ids]
+    except (TypeError, ValueError):
+        return Response({'detail': 'ownedSongIds must be integer IDs'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(set(owned_song_ids)) != 3:
+        return Response({'detail': 'ownedSongIds must be unique'}, status=status.HTTP_400_BAD_REQUEST)
+
+    owned_songs = list(
+        OwnedSong.objects
+        .select_related('song')
+        .filter(id__in=owned_song_ids, owner=request.user)
+    )
+    if len(owned_songs) != 3:
+        return Response({'detail': 'you must own all selected songs'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if MarketListing.objects.filter(owned_song_id__in=owned_song_ids, status='active').exists():
+        return Response({'detail': 'listed songs cannot be rerolled'}, status=status.HTTP_400_BAD_REQUEST)
+
+    spotify_client = SpotifyClient()
+    if not spotify_client.is_configured:
+        return Response({'detail': 'spotify search is not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+    if not candidates:
+        return Response({'detail': 'no Spotify tracks found for this artist keyword'}, status=status.HTTP_404_NOT_FOUND)
+
+    chosen_track = random.choice(candidates)
+    rolled_rarity = _roll_rarity_from_inputs([song.rarity for song in owned_songs])
+
+    with transaction.atomic():
+        OwnedSong.objects.filter(id__in=owned_song_ids, owner=request.user).delete()
+        canonical_song = _upsert_song_from_spotify_track(chosen_track)
+        rolled_song = OwnedSong.objects.create(song=canonical_song, rarity=rolled_rarity, owner=request.user)
+
+    serializer = OwnedSongSerializer(rolled_song)
+    payload = serializer.data
+    hydrate_songs_from_spotify([payload])
+
+    return Response({
+        'newSong': payload,
+        'consumedOwnedSongIds': owned_song_ids,
+        'rolledRarity': rolled_rarity,
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

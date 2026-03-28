@@ -9,7 +9,6 @@ import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useAuth } from "../context/useAuth";
 
-
 const RARITY_ORDER: Record<OwnedSong["rarity"], number> = {
   Legendary: 5,
   Epic: 4,
@@ -26,6 +25,10 @@ export function CollectionPage() {
   const [selected, setSelected] = useState<OwnedSong | null>(null);
   const [loading, setLoading] = useState(true);
   const [listing, setListing] = useState(false);
+  const [rerollOpen, setRerollOpen] = useState(false);
+  const [rerollSelection, setRerollSelection] = useState<string[]>([]);
+  const [artistKeyword, setArtistKeyword] = useState("");
+  const [rerolling, setRerolling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +59,7 @@ export function CollectionPage() {
   const remainder = songs.length % COLS_DESKTOP;
   const emptySlots = remainder === 0 ? 0 : COLS_DESKTOP - remainder;
 
-   const listSelectedOnMarket = async () => {
+  const listSelectedOnMarket = async () => {
     if (!selected || listing) return;
 
     const rawPrice = window.prompt("Set your sale price (whole number):", "50");
@@ -81,11 +84,63 @@ export function CollectionPage() {
     }
   };
 
+  const toggleRerollSong = (ownedSongId: string) => {
+    setRerollSelection((current) => {
+      if (current.includes(ownedSongId)) {
+        return current.filter((id) => id !== ownedSongId);
+      }
+      if (current.length >= 3) {
+        return current;
+      }
+      return [...current, ownedSongId];
+    });
+  };
+
+  const submitReroll = async () => {
+    if (rerollSelection.length !== 3) {
+      window.alert("Select exactly 3 songs to reroll.");
+      return;
+    }
+
+    if (!artistKeyword.trim()) {
+      window.alert("Enter an artist keyword before rerolling.");
+      return;
+    }
+
+    try {
+      setRerolling(true);
+      const parsedOwnedSongIds = rerollSelection.map((id) => Number(id));
+      if (parsedOwnedSongIds.some((id) => !Number.isFinite(id))) {
+        window.alert("Reroll is unavailable while running in local mock mode.");
+        return;
+      }
+
+      const result = await api.rerollInventorySongs({
+        ownedSongIds: parsedOwnedSongIds,
+        artistKeyword: artistKeyword.trim(),
+      });
+
+      const refreshedSongs = await api.getInventory();
+      setSongs(refreshedSongs);
+      const newlyCreated = refreshedSongs.find((song) => song.id === result.newSong.id) ?? result.newSong;
+      setSelected(newlyCreated);
+      setRerollOpen(false);
+      setRerollSelection([]);
+      setArtistKeyword("");
+      window.alert(`You rolled a ${result.rolledRarity} song: ${result.newSong.title} by ${result.newSong.artist}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to reroll songs.";
+      window.alert(message);
+    } finally {
+      setRerolling(false);
+    }
+  };
+
   return (
     <div className="h-full bg-neutral-950 text-white">
       <div className="relative max-w-6xl mx-auto px-6 pt-6 pb-6 h-full flex flex-col min-h-0">
-        {/* Vertical side label */}
         <div className="collection-side-label tracking-wide">Collection</div>
+
 
         {loading ? (
           <div className="flex-1 grid place-items-center min-h-0">
@@ -93,12 +148,8 @@ export function CollectionPage() {
           </div>
         ) : (
           <div className="grid grid-cols-12 gap-4 flex-1 min-h-0">
-
-
-
-            {/* LEFT PANEL */}
             <GlassPanel
-            key={selected?.id ?? "none"}
+              key={selected?.id ?? "none"}
               className="col-span-12 md:col-span-4 p-4 md:sticky md:top-0 h-full min-h-0 overflow-hidden flex flex-col rarity-rotating-border rarity-rim-sweep rarity-bg-wash"
               style={{ ["--rarity-rgb" as const]: rarityRgb(selected?.rarity) } as CSSProperties}
             >
@@ -122,10 +173,16 @@ export function CollectionPage() {
                   </div>
 
                   <div className="mt-auto pt-4 flex gap-2">
-                    <button className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm">
-                      Display on profile
+                    <button
+                      type="button"
+                      className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={() => setRerollOpen(true)}
+                      disabled={songs.length < 3 || rerolling}
+                      title={songs.length < 3 ? "You need at least 3 songs to reroll." : "Reroll 3 songs for a new pull"}
+                    >
+                      Reroll 3 Songs
                     </button>
-                     <button
+                    <button
                       type="button"
                       className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => {
@@ -150,10 +207,13 @@ export function CollectionPage() {
 
                   <div className="mt-auto pt-4 flex gap-2 opacity-60">
                     <button
-                      className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm"
-                      disabled
+                      type="button"
+                      className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      onClick={() => setRerollOpen(true)}
+                      disabled={songs.length < 3 || rerolling}
+                      title={songs.length < 3 ? "You need at least 3 songs to reroll." : "Reroll 3 songs for a new pull"}
                     >
-                      Display on profile
+                      Reroll 3 Songs
                     </button>
                     <button
                       className="flex-1 px-3 py-2 rounded-xl bg-white/10 border border-white/10 text-sm"
@@ -166,7 +226,6 @@ export function CollectionPage() {
               )}
             </GlassPanel>
 
-            {/* Right grid */}
             <GlassPanel className="col-span-12 md:col-span-8 p-4 overflow-y-auto pr-3 pb-10 muscino-scroll min-h-0">
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
                 {sortedSongs.map((song) => (
@@ -201,6 +260,84 @@ export function CollectionPage() {
           </div>
         )}
       </div>
+
+      {rerollOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm p-4 md:p-8">
+          <div className="mx-auto max-w-3xl h-full">
+            <GlassPanel className="h-full p-5 flex flex-col gap-4 border border-white/20">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold">Song Reroll</h2>
+                  <p className="text-sm text-neutral-300">
+                    Pick 3 songs, then search an artist keyword. Higher rarity inputs improve your rarity odds.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded-lg bg-white/10 border border-white/15 text-sm"
+                  onClick={() => {
+                    if (!rerolling) setRerollOpen(false);
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  value={artistKeyword}
+                  onChange={(e) => setArtistKeyword(e.target.value)}
+                  placeholder="Artist keyword (e.g. Drake, Paramore, Skrillex)"
+                  className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/15 outline-none focus:border-white/40"
+                  disabled={rerolling}
+                />
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg bg-indigo-500/80 border border-indigo-300/40 text-sm font-medium disabled:opacity-60"
+                  onClick={() => {
+                    void submitReroll();
+                  }}
+                  disabled={rerolling || rerollSelection.length !== 3 || !artistKeyword.trim()}
+                >
+                  {rerolling ? "Rerolling..." : "Exchange 3 Songs"}
+                </button>
+              </div>
+
+              <div className="text-xs text-neutral-400">
+                Selected: {rerollSelection.length}/3
+              </div>
+
+              <div className="overflow-y-auto pr-1 muscino-scroll grid grid-cols-1 md:grid-cols-2 gap-2">
+                {sortedSongs.map((song) => {
+                  const isChecked = rerollSelection.includes(String(song.id));
+                  return (
+                    <button
+                      key={`reroll-${song.id}`}
+                      type="button"
+                      onClick={() => toggleRerollSong(String(song.id))}
+                      disabled={rerolling}
+                      className={`w-full text-left p-2 rounded-xl border transition ${
+                        isChecked
+                          ? "border-indigo-300/80 bg-indigo-500/20"
+                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={song.coverUrl} alt="" className="w-12 h-12 rounded-md object-cover bg-white/10" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{song.title}</div>
+                          <div className="truncate text-xs text-neutral-300">{song.artist}</div>
+                          <div className={`text-xs ${rarityTextClass(song.rarity)}`}>{song.rarity}</div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </GlassPanel>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

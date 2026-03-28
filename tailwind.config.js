@@ -2,16 +2,12 @@
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        sans: ["var(--app-font-family)", "system-ui", "sans-serif"],
+        poppins: ["Poppins", "system-ui", "sans-serif"],
+      },
+    },
   },
   plugins: [],
 };
-
-theme: {
-  extend: {
-    fontFamily: {
-      sans: ["Weezer", "system-ui", "sans-serif"],
-      poppins: ["Weezer", "system-ui", "sans-serif"],
-    },
-  },
-},

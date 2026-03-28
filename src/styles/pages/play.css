@@ -61,6 +61,16 @@
   z-index: 1;
 }
 
+.play-content {
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1), opacity 360ms ease;
+}
+
+.play-content.is-opening {
+  transform: translateY(18vh) scale(0.98);
+  opacity: 0.22;
+  pointer-events: none;
+}
+
 .play-panel-pop {
   opacity: 0;
   transform: translateY(26px) scale(0.97);
@@ -318,14 +328,133 @@
 
 .muscino-opening-center {
   position: relative;
-  width: min(820px, calc(100vw - 2rem)); /* bigger overlay */
+  width: min(1160px, calc(100vw - 1.5rem));
   padding: 1rem;
 }
 
 .muscino-opening-panel { padding: 1.25rem; }
+.muscino-opening-sequence {
+  position: relative;
+  min-height: min(650px, 76vh);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.muscino-opening-drop-sleeve {
+  position: absolute;
+  width: min(360px, 54vw);
+  max-height: 50vh;
+  object-fit: contain;
+  filter: drop-shadow(0 26px 44px rgba(0, 0, 0, 0.55));
+  top: -66%;
+  opacity: 0;
+  transform-origin: 50% 74%;
+}
+
+.muscino-opening-sequence.is-dropping .muscino-opening-drop-sleeve {
+  animation: muscinoDropSleeve 650ms cubic-bezier(0.22, 0.96, 0.29, 1) forwards;
+}
+
+.muscino-opening-sequence.is-burst .muscino-opening-drop-sleeve {
+  top: 50%;
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+  animation: muscinoBurstSleeve 320ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
+.muscino-opening-sequence.is-rolling .muscino-opening-drop-sleeve,
+.muscino-opening-sequence.is-revealed .muscino-opening-drop-sleeve {
+  display: none;
+}
+
+.muscino-opening-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+  width: min(1080px, 96vw);
+  opacity: 0;
+  transform: translateY(22px) scale(0.97);
+}
+
+.muscino-opening-sequence.is-rolling .muscino-opening-main,
+.muscino-opening-sequence.is-revealed .muscino-opening-main {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 240ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.muscino-opening-current {
+  width: min(1040px, 94vw);
+  min-height: 3.4rem;
+  font-size: clamp(1.8rem, 2.8vw, 3rem);
+  line-height: 1.1;
+  font-weight: 520;
+  color: rgb(var(--rarity-rgb, 96 165 250) / 0.97);
+  text-shadow:
+    0 0 20px rgb(var(--rarity-rgb, 96 165 250) / 0.36),
+    0 12px 28px rgba(0,0,0,0.45);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes muscinoDropSleeve {
+  0% {
+    top: -66%;
+    opacity: 0;
+    transform: translateY(0) scale(0.88);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    top: 50%;
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+@keyframes muscinoBurstSleeve {
+  0% {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: translateY(-45%) scale(0.88, 1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-46%) scale(1.36);
+    opacity: 0;
+    filter: blur(2px) drop-shadow(0 22px 28px rgba(0, 0, 0, 0.32));
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .muscino-opening-backdrop { backdrop-filter: none; }
+  .play-content {
+    transition: none;
+  }
+  .play-content.is-opening {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .muscino-opening-drop-sleeve,
+  .muscino-opening-sequence.is-dropping .muscino-opening-drop-sleeve,
+  .muscino-opening-sequence.is-burst .muscino-opening-drop-sleeve {
+    animation: none;
+    top: 50%;
+    opacity: 0;
+  }
+  .muscino-opening-main {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 /* =========================
@@ -640,7 +769,7 @@
    ========================= */
 
 .muscino-reel {
-  width: min(860px, 92vw); /* bigger */
+  width: min(1040px, 95vw);
 }
 
 .muscino-reel-window {
@@ -714,7 +843,7 @@
   transform: translateX(0);
 
   /* slower animation */
-  animation: muscino-reel-roll 4200ms cubic-bezier(0.10, 0.95, 0.10, 1) forwards;
+  animation: muscino-reel-roll 5600ms cubic-bezier(0.10, 0.95, 0.10, 1) forwards;
   will-change: transform;
 }
 

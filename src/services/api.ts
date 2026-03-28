@@ -2,6 +2,13 @@ import type { AuthUser, LoginInput } from "../types/auth";
 import { mockInventory as MOCK_INVENTORY } from "../mock/mockData";
 import { MOCK_SLEEVES } from "../mock/sleeves";
 import type { OwnedSong, Rarity } from "../types/song";
+
+export type RerollInventoryResponse = {
+  newSong: OwnedSong;
+  consumedOwnedSongIds: number[];
+  rolledRarity: Rarity;
+};
+
 import type { Sleeve, SleeveSong } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
 import type { ProfileView } from "../types/profile";
@@ -163,6 +170,14 @@ export const api = {
       await delay(200);
       return mockInventory;
     }
+  },
+
+    async rerollInventorySongs(input: { ownedSongIds: number[]; artistKeyword: string }): Promise<RerollInventoryResponse> {
+    return await fetchJson<RerollInventoryResponse>("/api/inventory/reroll/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
   },
 
   async getProfile(username: string): Promise<ProfileView> {

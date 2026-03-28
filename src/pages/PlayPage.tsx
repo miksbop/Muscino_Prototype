@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import GlassPanel from "../components/GlassPanel";
 import { SongCard } from "../components/SongCard";
@@ -7,14 +7,14 @@ import { api } from "../services/api";
 import { useAuth } from "../context/useAuth";
 import type { OwnedSong } from "../types/song";
 import type { Sleeve } from "../types/sleeve";
-import { rarityRgb } from "../types/rarity";
+import { rarityBorderClass, rarityGlowClass, rarityRgb } from "../types/rarity";
 
 import sleevePop from "../pictures/Pictures/sleeve_pop.png";
 import sleevePopOpen from "../pictures/Pictures/sleeve_pop_open.png";
 import sleeveRock from "../pictures/Pictures/sleeve_rock.png";
 import sleeveRockOpen from "../pictures/Pictures/sleeve_rock_open.png";
 
-type OpenState = "idle" | "rolling" | "revealed";
+type OpenState = "idle" | "dropping" | "burst" | "rolling" | "revealed";
 type PlayGenre = "Pop" | "Rock" | "Rap";
 
 const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock", "Rap"];
@@ -27,7 +27,9 @@ const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
 };
 
 // Must match CSS reel animation duration.
-const REEL_DURATION_MS = 4200;
+const REEL_DURATION_MS = 5600;
+const DROP_DURATION_MS = 650;
+const BURST_DURATION_MS = 320;
 const CARD_INTRO_STAGGER_MS = 88;
 const CARD_INTRO_BASE_MS = 340;
 const CARD_INTRO_START_DELAY_MS = 220;
@@ -42,8 +44,8 @@ const RARITY_WEIGHT: Record<OwnedSong["rarity"], number> = {
 
 function buildReel(items: OwnedSong[], result: OwnedSong) {
   const pool = items.length ? items : [result];
-  const total = 23;
-  const finalIndex = 15;
+  const total = 29;
+  const finalIndex = 19;
 
   const tiles: OwnedSong[] = [];
   for (let index = 0; index < total; index++) {
@@ -70,6 +72,8 @@ export function PlayPage() {
   const [switchTick, setSwitchTick] = useState(0);
   const [peekOpen, setPeekOpen] = useState(false);
   const timersRef = useRef<number[]>([]);
+  const reelTrackRef = useRef<HTMLDivElement | null>(null);
+  const reelSyncRafRef = useRef<number | null>(null);
 
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [openState, setOpenState] = useState<OpenState>("idle");
@@ -79,6 +83,7 @@ export function PlayPage() {
   const [reelTiles, setReelTiles] = useState<OwnedSong[]>([]);
   const [finalIndex, setFinalIndex] = useState(0);
   const [reelTick, setReelTick] = useState(0);
+  const [reelFocusIndex, setReelFocusIndex] = useState(0);
   const [hasActivatedBackground, setHasActivatedBackground] = useState(false);
   const [panelIntroStage, setPanelIntroStage] = useState<"idle" | "left" | "right" | "sheen">("idle");
   const panelIntroTimersRef = useRef<number[]>([]);
@@ -87,6 +92,53 @@ export function PlayPage() {
   const [leftPanelSheenTick, setLeftPanelSheenTick] = useState(0);
   const hasInitializedGenreRef = useRef(false);
   const [artistTickerIndex, setArtistTickerIndex] = useState(0);
+
+  const stopReelSyncLoop = useCallback(() => {
+    if (reelSyncRafRef.current !== null) {
+      window.cancelAnimationFrame(reelSyncRafRef.current);
+      reelSyncRafRef.current = null;
+    }
+  }, []);
+
+  const startReelSyncLoop = useCallback(() => {
+    stopReelSyncLoop();
+
+    const syncFrame = () => {
+      const trackEl = reelTrackRef.current;
+      if (!trackEl) {
+        reelSyncRafRef.current = window.requestAnimationFrame(syncFrame);
+        return;
+      }
+
+      const reelWindow = trackEl.closest(".muscino-reel-window");
+      if (!reelWindow) {
+        reelSyncRafRef.current = window.requestAnimationFrame(syncFrame);
+        return;
+      }
+
+      const reelWindowRect = reelWindow.getBoundingClientRect();
+      const markerX = reelWindowRect.left + reelWindowRect.width / 2;
+      const tileNodes = Array.from(trackEl.querySelectorAll<HTMLElement>("[data-reel-index]"));
+      let closestIndex = 0;
+      let smallestDistance = Number.POSITIVE_INFINITY;
+
+      tileNodes.forEach((tileNode) => {
+        const tileRect = tileNode.getBoundingClientRect();
+        const tileCenter = tileRect.left + tileRect.width / 2;
+        const distance = Math.abs(markerX - tileCenter);
+
+        if (distance < smallestDistance) {
+          smallestDistance = distance;
+          closestIndex = Number(tileNode.dataset.reelIndex ?? 0);
+        }
+      });
+
+      setReelFocusIndex((prev) => (prev === closestIndex ? prev : closestIndex));
+      reelSyncRafRef.current = window.requestAnimationFrame(syncFrame);
+    };
+
+    reelSyncRafRef.current = window.requestAnimationFrame(syncFrame);
+  }, [stopReelSyncLoop]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,8 +157,21 @@ export function PlayPage() {
       cancelled = true;
       timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       timersRef.current = [];
+      stopReelSyncLoop();
     };
-  }, []);
+  }, [stopReelSyncLoop]);
+
+  useEffect(() => {
+    if (openState !== "rolling") {
+      stopReelSyncLoop();
+      return;
+    }
+
+    startReelSyncLoop();
+    return () => {
+      stopReelSyncLoop();
+    };
+  }, [openState, reelTick, startReelSyncLoop, stopReelSyncLoop]);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => {
@@ -254,6 +319,10 @@ export function PlayPage() {
   }, [genreIndex]);
 
   function closeOverlay() {
+    timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    timersRef.current = [];
+    stopReelSyncLoop();
+
     setOverlayOpen(false);
     setOpenState("idle");
     setRolled(null);
@@ -262,39 +331,61 @@ export function PlayPage() {
     setReelTiles([]);
     setFinalIndex(0);
     setReelTick((tick) => tick + 1);
+    setReelFocusIndex(0);
   }
 
   async function handleOpen() {
     if (!current) return;
 
-    setOverlayOpen(true);
-    setOpenState("rolling");
-    setRolled(null);
-    setOpenError(null);
-
     timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current = [];
+    stopReelSyncLoop();
 
+    setOverlayOpen(true);
+    setOpenState("dropping");
+    setRolled(null);
+    setOpenError(null);
+    setReelFocusIndex(0);
+    setReelTiles([]);
+    setFinalIndex(0);
+    setReelTick((tick) => tick + 1);
+
+    const burstTimerId = window.setTimeout(() => setOpenState("burst"), DROP_DURATION_MS);
+    timersRef.current.push(burstTimerId);
+
+    let owned: OwnedSong;
     try {
-      const owned = await api.openSleeve(current.id);
+      [owned] = await Promise.all([
+        api.openSleeve(current.id),
+        new Promise<void>((resolve) => {
+          const minIntroTimerId = window.setTimeout(resolve, DROP_DURATION_MS + BURST_DURATION_MS);
+          timersRef.current.push(minIntroTimerId);
+        }),
+      ]);
       void refreshUser();
-      const pool = (current.contents ?? []) as OwnedSong[];
-      const built = buildReel(pool, owned);
-
-      setReelTiles(built.tiles);
-      setFinalIndex(built.finalIndex);
-      setReelTick((tick) => tick + 1);
-
-      timersRef.current.push(
-        window.setTimeout(() => {
-          setRolled(owned);
-          setOpenState("revealed");
-        }, REEL_DURATION_MS),
-      );
     } catch (error) {
       setOpenState("idle");
       setOpenError(error instanceof Error ? error.message : "Failed to open sleeve");
+      return;
     }
+
+    const pool = (current.contents ?? []) as OwnedSong[];
+    const built = buildReel(pool, owned);
+
+    setReelTiles(built.tiles);
+    setFinalIndex(built.finalIndex);
+    setReelTick((tick) => tick + 1);
+
+    setOpenState("rolling");
+    setReelFocusIndex(0);
+
+    timersRef.current.push(
+      window.setTimeout(() => {
+        setReelFocusIndex(built.finalIndex);
+        setRolled(owned);
+        setOpenState("revealed");
+      }, REEL_DURATION_MS),
+    );
   }
 
   const art = SLEEVE_ART[genre];
@@ -327,68 +418,76 @@ export function PlayPage() {
                     Close
                   </button>
                 </div>
-              ) : openState === "rolling" ? (
-                <div className="flex flex-col items-center gap-5 py-6">
-                  <div className="text-3xl md:text-4xl font-medium text-white/90">Opening…</div>
-
-                  <div className="muscino-reel" aria-hidden="true">
-                    <div className="muscino-reel-window">
-                      <div className="muscino-reel-marker" />
-                      <div
-                        key={`reel-${reelTick}`}
-                        className="muscino-reel-track"
-                        style={{ ["--final-i" as const]: finalIndex } as CSSProperties}
-                      >
-                        {reelTiles.map((song, index) => {
-                          const delta = Math.abs(index - finalIndex);
-                          const clampedDelta = delta >= 3 ? 3 : delta;
-
-                          return (
-                            <div key={`${song.id}-${index}`} className="muscino-reel-tile" data-delta={clampedDelta}>
-                              {song.coverUrl ? <img src={song.coverUrl} alt="" draggable={false} /> : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-white/60 text-sm">Rolling a song from this sleeve</div>
-                </div>
               ) : (
-                <div className="flex flex-col items-center gap-4 py-4">
-                  <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
+                <div className={["muscino-opening-sequence", `is-${openState}`].join(" ")}>
+                  <img
+                    src={art.closed}
+                    alt=""
+                    className="muscino-opening-drop-sleeve"
+                    draggable={false}
+                  />
 
-                  <div className="w-[min(520px,90vw)] aspect-square rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-                    {rolled?.coverUrl ? (
-                      <img src={rolled.coverUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-                    ) : null}
+                  <div className="muscino-opening-main">
+                    {(openState === "rolling" || openState === "revealed") && (
+                      <>
+                        <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
+
+                        <div className="muscino-reel" aria-hidden="true">
+                          <div className="muscino-reel-window">
+                            <div className="muscino-reel-marker" />
+                            <div
+                              key={`reel-${reelTick}`}
+                              className="muscino-reel-track"
+                              ref={reelTrackRef}
+                              style={{ ["--final-i" as const]: finalIndex } as CSSProperties}
+                            >
+                              {reelTiles.map((song, index) => {
+                                const delta = Math.abs(index - finalIndex);
+                                const clampedDelta = delta >= 3 ? 3 : delta;
+
+                                return (
+                                  <div
+                                    key={`${song.id}-${index}`}
+                                    className={[
+                                      "muscino-reel-tile",
+                                      rarityBorderClass(song.rarity, "strong"),
+                                      rarityGlowClass(song.rarity),
+                                    ].join(" ")}
+                                    data-delta={clampedDelta}
+                                    data-reel-index={index}
+                                    style={{ ["--rarity-rgb" as const]: rarityRgb(song.rarity) } as CSSProperties}
+                                  >
+                                    {song.coverUrl ? <img src={song.coverUrl} alt="" draggable={false} /> : null}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          className="muscino-opening-current"
+                          style={
+                            { ["--rarity-rgb" as const]: rarityRgb((reelTiles[reelFocusIndex] ?? rolled)?.rarity ?? "Common") } as CSSProperties
+                          }
+                        >
+                          {(reelTiles[reelFocusIndex] ?? rolled)?.title ?? "Rolling..."}
+                          {((reelTiles[reelFocusIndex] ?? rolled)?.artist && ` – ${(reelTiles[reelFocusIndex] ?? rolled)?.artist}`) || ""}
+                        </div>
+                      </>
+                    )}
+
+                    {openState === "revealed" && (
+                      <div className="flex gap-3 pt-1">
+                        <button
+                          onClick={closeOverlay}
+                          className="px-5 py-2 rounded-xl bg-blue-500/75 border border-blue-300/20 hover:bg-blue-500/90 transition"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="text-center">
-                    <div className="text-2xl md:text-3xl text-blue-300 font-medium">{rolled?.title ?? "Unknown"}</div>
-                    <div className="text-white/70 text-lg">{rolled?.artist ?? ""}</div>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      onClick={closeOverlay}
-                      className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition"
-                    >
-                      Close
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await refreshUser();
-                        closeOverlay();
-                      }}
-                      className="px-4 py-2 rounded-xl bg-blue-500/70 border border-blue-300/20 hover:bg-blue-500/80 transition"
-                    >
-                      Save to Collection
-                    </button>
-                  </div>
-
-                  <div className="text-xs text-white/45 pt-1">(Injected into inventory via mock API)</div>
                 </div>
               )}
             </GlassPanel>
@@ -396,7 +495,12 @@ export function PlayPage() {
         </div>
       )}
 
-      <div className="relative max-w-6xl mx-auto px-6 pt-6 pb-6 h-full flex flex-col min-h-0">
+      <div
+        className={[
+          "relative max-w-6xl mx-auto px-6 pt-6 pb-6 h-full flex flex-col min-h-0 play-content",
+          overlayOpen ? "is-opening" : "",
+        ].join(" ")}
+      >
         <div className="play-side-label">Play / / /</div>
 
         {loading ? (
