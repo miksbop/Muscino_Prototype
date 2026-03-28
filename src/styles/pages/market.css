@@ -4,6 +4,18 @@
   height: 100%;
 }
 
+.market-side-label {
+  position: absolute;
+  left: 0;
+  top: 7.25rem;
+  transform: translateX(-0.5rem);
+  z-index: 3;
+  writing-mode: vertical-rl;
+  letter-spacing: 1.5em;
+  font-size: clamp(0.25rem, 7vw, 0.95rem);
+  color: rgba(255, 255, 255, 0.18);
+}
+
 /* Firefox fallback (no zoom support). */
 @supports not (zoom: 1) {
   .market-page-unscaled {

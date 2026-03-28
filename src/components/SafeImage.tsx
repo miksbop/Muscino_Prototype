@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
 type SafeImageProps = {
   src: string;
   alt: string;
   className?: string;
   draggable?: boolean;
+  style?: CSSProperties;
 };
 
 const FALLBACK_SVG =
@@ -16,7 +18,7 @@ const FALLBACK_SVG =
     </svg>`,
   );
 
-export function SafeImage({ src, alt, className = "", draggable = false }: SafeImageProps) {
+export function SafeImage({ src, alt, className = "", draggable = false, style }: SafeImageProps) {
   const [broken, setBroken] = useState(false);
 
   const finalSrc = useMemo(() => {
@@ -29,6 +31,7 @@ export function SafeImage({ src, alt, className = "", draggable = false }: SafeI
       src={finalSrc}
       alt={alt}
       className={className}
+      style={style}
       draggable={draggable}
       onError={() => setBroken(true)}
     />

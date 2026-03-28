@@ -1,5 +1,6 @@
 import type { OwnedSong } from "../types/song";
 import type { SleeveSong } from "../types/sleeve";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { RarityPill } from "./RarityPill";
 import {
@@ -19,14 +20,56 @@ type SongCardProps = {
   onSelect?: () => void;
   className?: string;
   style?: CSSProperties;
+  hoverChancePercent?: number;
 };
 
-export function SongCard({ song, selected = false, onSelect, className, style }: SongCardProps) {
+export function SongCard({ song, selected = false, onSelect, className, style, hoverChancePercent }: SongCardProps) {
   const hasCover = Boolean(song.coverUrl && song.coverUrl.trim().length > 0);
+  const [chanceDisplay, setChanceDisplay] = useState(0);
+  const frameRef = useRef<number | null>(null);
+
+  function stopChanceAnimation() {
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+  }
+
+  function runChanceAnimation() {
+    if (typeof hoverChancePercent !== "number") return;
+
+    stopChanceAnimation();
+    setChanceDisplay(0);
+
+    const animationStart = performance.now();
+    const durationMs = 420;
+
+    const tick = (now: number) => {
+      const elapsed = now - animationStart;
+      const progress = Math.min(1, elapsed / durationMs);
+      const eased = 1 - (1 - progress) ** 3;
+      const value = Math.round(hoverChancePercent * eased);
+      setChanceDisplay(value);
+
+      if (progress < 1) {
+        frameRef.current = window.requestAnimationFrame(tick);
+      } else {
+        frameRef.current = null;
+      }
+    };
+
+    frameRef.current = window.requestAnimationFrame(tick);
+  }
+
+  useEffect(() => () => stopChanceAnimation(), []);
 
   return (
     <button
       onClick={onSelect}
+      onMouseEnter={runChanceAnimation}
+      onFocus={runChanceAnimation}
+      onMouseLeave={stopChanceAnimation}
+      onBlur={stopChanceAnimation}
       style={style}
       className={[
         "relative overflow-hidden z-0",
@@ -75,6 +118,12 @@ export function SongCard({ song, selected = false, onSelect, className, style }:
         <div className="mt-1">
           <RarityPill rarity={song.rarity} />
         </div>
+
+        {typeof hoverChancePercent === "number" ? (
+          <div className="play-odds-overlay" aria-hidden="true">
+            <span className="play-odds-overlay-value">{chanceDisplay}%</span>
+          </div>
+        ) : null}
       </div>
     </button>
   );

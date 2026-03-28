@@ -32,6 +32,13 @@ const CARD_INTRO_STAGGER_MS = 88;
 const CARD_INTRO_BASE_MS = 340;
 const CARD_INTRO_START_DELAY_MS = 220;
 const CARD_INTRO_WAVE_COLUMNS = 4;
+const RARITY_WEIGHT: Record<OwnedSong["rarity"], number> = {
+  Common: 35,
+  Uncommon: 25,
+  Rare: 20,
+  Epic: 15,
+  Legendary: 5,
+};
 
 function buildReel(items: OwnedSong[], result: OwnedSong) {
   const pool = items.length ? items : [result];
@@ -79,6 +86,7 @@ export function PlayPage() {
   const hasPlayedCardIntroRef = useRef(false);
   const [leftPanelSheenTick, setLeftPanelSheenTick] = useState(0);
   const hasInitializedGenreRef = useRef(false);
+  const [artistTickerIndex, setArtistTickerIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,8 +144,60 @@ export function PlayPage() {
   );
 
   const current = sleevesForGenre[0] ?? null;
+  const artistTicker = useMemo(() => {
+    const uniqueArtists = Array.from(
+      new Set(
+        (current?.contents ?? [])
+          .map((song) => song.artist?.trim())
+          .filter((artist): artist is string => Boolean(artist)),
+      ),
+    );
+
+    return uniqueArtists.length ? uniqueArtists : ["No artists yet"];
+  }, [current]);
+
   const canPrev = genreIndex > 0;
   const canNext = genreIndex < PLAY_GENRES.length - 1;
+  const dropChanceBySongId = useMemo(() => {
+    const songs = current?.contents ?? [];
+    if (!songs.length) return new Map<string, number>();
+
+    const weighted = songs.map((song) => ({
+      id: song.id,
+      weight: Math.max(0, song.weight ?? RARITY_WEIGHT[song.rarity]),
+    }));
+
+    const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+    if (totalWeight <= 0) return new Map<string, number>();
+
+    const chances = weighted.map((entry) => ({
+      id: entry.id,
+      chance: Math.round((entry.weight / totalWeight) * 100),
+    }));
+
+    const currentTotal = chances.reduce((sum, entry) => sum + entry.chance, 0);
+    if (chances.length > 0 && currentTotal !== 100) {
+      chances[chances.length - 1].chance += 100 - currentTotal;
+    }
+
+    return new Map(chances.map((entry) => [entry.id, entry.chance]));
+  }, [current]);
+
+  useEffect(() => {
+    setArtistTickerIndex(0);
+
+    if (artistTicker.length <= 1) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setArtistTickerIndex((index) => (index + 1) % artistTicker.length);
+    }, 2400);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [artistTicker]);
 
   useEffect(() => {
     if (loading || hasPlayedCardIntroRef.current) return;
@@ -394,9 +454,16 @@ export function PlayPage() {
                     <div className="play-sleeve-glow" />
                   </div>
 
-                  <div className="play-sleeve-label mt-6 text-5xl font-medium leading-none tracking-tight">
+                  <div className="play-sleeve-label text-5xl font-medium leading-none tracking-tight">
                     <span className="play-sleeve-genre">{genre}</span>{" "}
                     <span className="play-sleeve-word">Sleeve</span>
+                  </div>
+
+                  <div className="play-artist-rotator" aria-live="polite">
+                    <div className="play-artist-rotator-label">Featuring</div>
+                    <div key={`${genre}-${artistTickerIndex}`} className="play-artist-rotator-name">
+                      {artistTicker[artistTickerIndex]}
+                    </div>
                   </div>
                 </div>
 
@@ -430,8 +497,6 @@ export function PlayPage() {
               ].join(" ")}
             >
               <div className="play-panel-content">
-                <div className="text-white/60 mb-1 text-small">Contents:</div>
-
                 <div className="flex-1 min-h-0 overflow-y-auto pr-2 pb-6 muscino-scroll">
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
                     {(current?.contents ?? []).map((song, index) => (
@@ -441,6 +506,7 @@ export function PlayPage() {
                         selected={false}
                         onSelect={() => {}}
                         className={cardIntroActive ? "play-song-card-intro" : ""}
+                        hoverChancePercent={dropChanceBySongId.get(song.id)}
                         style={
                           {
                             ["--intro-delay" as const]: `${(index % CARD_INTRO_WAVE_COLUMNS) * CARD_INTRO_STAGGER_MS}ms`,

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { api } from "../services/api";
 import type { MarketListing } from "../types/market";
 import { useAuth } from "../context/useAuth";
-import { rarityTextClass } from "../types/rarity";
+import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { MarqueeText } from "../components/MarqueeText";
 import GlassPanel from "../components/GlassPanel";
@@ -124,16 +124,18 @@ export function MarketPage() {
   const fillerRows = Math.max(0, ROWS_PER_PAGE - pagedListings.length);
 
   const rowGridClass =
-    "grid grid-cols-[80px_minmax(0,2.2fr)_minmax(0,1.9fr)_minmax(0,1.35fr)_120px_144px] items-center";
+    "grid grid-cols-[112px_minmax(0,2.3fr)_minmax(0,1.85fr)_minmax(0,1.35fr)_120px_144px] items-center gap-x-6";
 
   return (
     <div className="flex h-full items-center justify-center overflow-hidden bg-neutral-950 px-8 py-8 text-white">
       <div
+        className="relative"
         style={{
           width: `${BASE_MARKET_WIDTH * fitScale}px`,
           height: `${BASE_MARKET_HEIGHT * fitScale}px`,
         }}
       >
+        <div className="market-side-label tracking-wide">Market</div>
         <div
           className="origin-top-left"
           style={{
@@ -142,7 +144,7 @@ export function MarketPage() {
             transform: `scale(${fitScale})`,
           }}
         >
-          <div className="market-page-unscaled h-full w-full">
+          <div className="market-page-unscaled relative h-full w-full">
             <GlassPanel
               className="h-full min-h-0 flex flex-col p-4 rarity-rotating-border rarity-rim-sweep rarity-bg-wash"
               style={{ ["--rarity-rgb" as const]: "255 255 255" } as CSSProperties}
@@ -202,7 +204,7 @@ export function MarketPage() {
                     <div />
                   </div>
 
-                  <div className="flex-1 min-h-0 flex flex-col gap-3 py-3">
+                  <div className="flex-1 min-h-0 grid grid-rows-6 gap-3 py-3">
                     {pagedListings.map((listing) => {
                       const isOwn = user?.username === listing.seller;
                       const buyingThis = buyingId === listing.id;
@@ -210,39 +212,40 @@ export function MarketPage() {
                       return (
                         <div
                           key={listing.id}
-                          className={`${rowGridClass} rounded-lg bg-black/30 border border-white/5 px-3 py-3 min-h-[92px]`}
+                          className={`${rowGridClass} h-full min-h-0 rounded-lg bg-black/30 border border-white/5 px-4 py-4`}
                         >
                           <div className="flex items-center justify-center">
                             <img
                               src={listing.coverUrl}
                               alt=""
-                              className="w-16 h-16 rounded-md object-cover border border-white/10"
+                              className="rarity-thin-border w-20 h-20 rounded-md object-contain bg-black/40"
+                              style={{ ["--rarity-rgb" as const]: rarityRgb(listing.rarity) } as CSSProperties}
                               draggable={false}
                             />
                           </div>
 
-                          <div className="min-w-0">
-                            <div className="font-semibold text-[1.02rem] leading-tight truncate">{listing.title}</div>
-                            <div className="text-sm text-neutral-400 truncate mt-0.5">
+                          <div className="min-w-0 pr-2">
+                            <div className="font-semibold text-[1.08rem] leading-tight truncate">{listing.title}</div>
+                            <div className="text-[0.98rem] text-neutral-400 truncate mt-0.5">
                               {listing.genre} · <span className={rarityTextClass(listing.rarity)}>{listing.rarity}</span>
                             </div>
                           </div>
 
                           <div className="min-w-0">
-                            <MarqueeText text={listing.artist} className="text-[1.03rem] text-neutral-200" speedPxPerSec={24} delayMs={900} />
+                            <MarqueeText text={listing.artist} className="text-[1.1rem] text-neutral-200" speedPxPerSec={24} delayMs={900} />
                           </div>
 
                           <div className="flex items-center gap-2.5 min-w-0">
                             <img
                               src={listing.sellerAvatarUrl || DEFAULT_AVATAR}
                               alt={`${listing.seller} avatar`}
-                              className="w-11 h-11 rounded-md border border-white/20 object-cover"
+                              className="w-12 h-12 rounded-md border border-white/20 object-cover"
                               draggable={false}
                             />
-                            <span className="text-[1rem] text-neutral-200 truncate">{listing.seller}</span>
+                            <span className="text-[1.06rem] text-neutral-200 truncate">{listing.seller}</span>
                           </div>
 
-                          <div className="text-blue-300 font-semibold tabular-nums text-[1.03rem] truncate">{listing.price}</div>
+                          <div className="text-blue-300 font-semibold tabular-nums text-[1.1rem] truncate">{listing.price}</div>
 
                           <div className="flex justify-start">
                             <button
@@ -251,7 +254,7 @@ export function MarketPage() {
                               onClick={() => {
                                 void buyListing(listing.id);
                               }}
-                              className="px-4 py-2 rounded-md text-[0.95rem] border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                              className="px-4 py-2.5 rounded-md text-[1rem] border border-white/15 bg-white/10 hover:bg-white/15 disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               {isOwn ? "Your listing" : buyingThis ? "Buying..." : "Purchase"}
                             </button>
@@ -264,10 +267,10 @@ export function MarketPage() {
                       <div
                         key={`empty-market-row-${index}`}
                         aria-hidden="true"
-                        className={`${rowGridClass} rounded-lg bg-black/20 border border-white/5 px-3 py-3 min-h-[92px]`}
+                        className={`${rowGridClass} h-full min-h-0 rounded-lg bg-black/20 border border-white/5 px-4 py-4`}
                       >
                         <div className="flex items-center justify-center">
-                          <div className="w-16 h-16 rounded-md border border-white/10 bg-white/5" />
+                          <div className="w-20 h-20 rounded-md border border-white/10 bg-white/5" />
                         </div>
                         <div className="text-neutral-500">...</div>
                         <div className="text-neutral-500">...</div>

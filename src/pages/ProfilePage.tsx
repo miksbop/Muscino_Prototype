@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SafeImage } from "../components/SafeImage";
 import { useAuth } from "../context/useAuth";
 import { api } from "../services/api";
+import { rarityRgb } from "../types/rarity";
 import type { ProfileView } from "../types/profile";
 
 const BASE_PROFILE_WIDTH = 1560;
@@ -151,7 +153,8 @@ export function ProfilePage() {
                     <SafeImage
                       src={profile.favoriteSong.coverUrl || ""}
                       alt={`${profile.favoriteSong.title} cover`}
-                      className="h-[320px] w-full rounded-xl object-cover"
+                      className="rarity-thin-border h-[320px] w-full rounded-xl object-cover"
+                      style={{ ["--rarity-rgb" as const]: rarityRgb(profile.favoriteSong.rarity) } as CSSProperties}
                     />
                     <p className="break-words leading-tight">
                       {profile.favoriteSong.title} -{" "}
@@ -179,7 +182,8 @@ export function ProfilePage() {
                         <SafeImage
                           src={song.coverUrl || ""}
                           alt={song.title}
-                          className="aspect-square w-full rounded-md object-cover ring-1 ring-white/10"
+                          className="rarity-thin-border aspect-square w-full rounded-md object-cover"
+                          style={{ ["--rarity-rgb" as const]: rarityRgb(song.rarity) } as CSSProperties}
                         />
                       </Link>
                     ) : (
