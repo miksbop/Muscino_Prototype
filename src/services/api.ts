@@ -114,12 +114,15 @@ export const api = {
   },
 
   async login(input: LoginInput): Promise<AuthUser> {
-    const data = await fetchJson<{ user: AuthUser }>("/api/auth/login/", {
+    const data = await fetchJson<{ user: AuthUser; walletIncrease?: number }>("/api/auth/login/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
-    return data.user;
+    return {
+      ...data.user,
+      walletIncrease: data.walletIncrease ?? 0,
+    } as AuthUser;
   },
 
   async register(input: LoginInput): Promise<AuthUser> {

@@ -1,15 +1,23 @@
 import { NavLink } from "react-router-dom";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 import { useAuth } from "../context/useAuth";
 
 export function TopNav() {
-  const { user, status, isSignedIn, signOut } = useAuth();
+  const { user, status, isSignedIn, signOut, walletIncreaseSignal } = useAuth();
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [hoverIntensity, setHoverIntensity] = useState<Record<string, number>>(
     {},
   );
   const [profileIntensity, setProfileIntensity] = useState(0);
+  const [walletPopAmount, setWalletPopAmount] = useState<number | null>(null);
+  const [walletTravelUp, setWalletTravelUp] = useState(false);
+  const [walletPulse, setWalletPulse] = useState(false);
+  const [walletPeakGlow, setWalletPeakGlow] = useState(false);
+  const [animatedWallet, setAnimatedWallet] = useState<number>(user?.wallet ?? 0);
+  const walletAnimationFrameRef = useRef<number | null>(null);
+  const animatedWalletRef = useRef<number>(user?.wallet ?? 0);
+  const walletDisplayStorageKey = "muscino:last-displayed-wallet-by-user";
 
   const linkBase = "hover:text-white cursor-pointer transition-colors";
   const linkInactive = "text-neutral-300";
@@ -32,6 +40,127 @@ export function TopNav() {
     const normalizedDistance = Math.min(distanceToCenter / (bounds.width / 2), 1);
     return 1 - normalizedDistance;
   };
+
+  const getStoredDisplayedWallet = useCallback((userId: string): number | null => {
+    try {
+      const raw = window.localStorage.getItem(walletDisplayStorageKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      const value = parsed?.[userId];
+      return typeof value === "number" ? value : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const persistDisplayedWallet = useCallback((userId: string, value: number) => {
+    try {
+      const raw = window.localStorage.getItem(walletDisplayStorageKey);
+      const next = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+      next[userId] = value;
+      window.localStorage.setItem(walletDisplayStorageKey, JSON.stringify(next));
+    } catch {
+      // no-op
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      animatedWalletRef.current = 0;
+      setAnimatedWallet(0);
+      return;
+    }
+
+    const hasIncreaseSignal =
+      typeof walletIncreaseSignal?.amount === "number" &&
+      walletIncreaseSignal.amount > 0 &&
+      user.wallet >= walletIncreaseSignal.amount;
+    const fallbackPrevious = getStoredDisplayedWallet(user.id);
+    const baseline = hasIncreaseSignal
+      ? user.wallet - (walletIncreaseSignal?.amount ?? 0)
+      : (typeof fallbackPrevious === "number" ? fallbackPrevious : user.wallet);
+    const nextDisplay = Math.min(Math.max(0, baseline), user.wallet);
+
+    animatedWalletRef.current = nextDisplay;
+    setAnimatedWallet(nextDisplay);
+  }, [user?.id, walletIncreaseSignal?.id, walletIncreaseSignal?.amount, getStoredDisplayedWallet]);
+
+  useEffect(() => {
+    return () => {
+      if (walletAnimationFrameRef.current) {
+        cancelAnimationFrame(walletAnimationFrameRef.current);
+      }
+    };
+  }, []);
+
+  const animateWalletTo = useCallback((target: number, durationMs = 640, onComplete?: () => void) => {
+    const start = animatedWalletRef.current;
+    if (start === target) {
+      onComplete?.();
+      return;
+    }
+
+    if (walletAnimationFrameRef.current) {
+      cancelAnimationFrame(walletAnimationFrameRef.current);
+    }
+
+    const startAt = performance.now();
+    const easeOut = (t: number) => 1 - (1 - t) ** 3;
+
+    const animate = (now: number) => {
+      const progress = Math.min((now - startAt) / durationMs, 1);
+      const eased = easeOut(progress);
+      const nextValue = Math.round(start + (target - start) * eased);
+      animatedWalletRef.current = nextValue;
+      setAnimatedWallet(nextValue);
+      if (progress < 1) {
+        walletAnimationFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        walletAnimationFrameRef.current = null;
+        if (user?.id) {
+          persistDisplayedWallet(user.id, target);
+        }
+        onComplete?.();
+      }
+    };
+
+    walletAnimationFrameRef.current = requestAnimationFrame(animate);
+  }, [persistDisplayedWallet, user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (walletPopAmount) return;
+    animateWalletTo(user.wallet, user.wallet > animatedWalletRef.current ? 680 : 380);
+  }, [user?.wallet, user?.id, walletPopAmount, animateWalletTo]);
+
+  useEffect(() => {
+    if (!walletIncreaseSignal?.amount) return;
+    if (!user) return;
+
+    setWalletPopAmount(walletIncreaseSignal.amount);
+    setWalletTravelUp(false);
+    setWalletPulse(false);
+    setWalletPeakGlow(false);
+
+    const lingerTimer = window.setTimeout(() => {
+      setWalletTravelUp(true);
+    }, 2000);
+    const countTimer = window.setTimeout(() => {
+      setWalletPopAmount(null);
+      setWalletTravelUp(false);
+      setWalletPulse(true);
+      animateWalletTo(user.wallet, 760, () => {
+        setWalletPeakGlow(true);
+        window.setTimeout(() => setWalletPeakGlow(false), 430);
+        window.setTimeout(() => setWalletPulse(false), 560);
+      });
+    }, 2840);
+
+    return () => {
+      window.clearTimeout(lingerTimer);
+      window.clearTimeout(countTimer);
+    };
+  }, [walletIncreaseSignal?.id, walletIncreaseSignal?.amount, animateWalletTo, user]);
 
   return (
     <div className="relative z-50 w-full h-14 border-b border-white/10 bg-neutral-900">
@@ -148,7 +277,25 @@ export function TopNav() {
                   </span>
                   <span className="relative z-10">{user.displayName}</span>
                 </NavLink>
-                <span className="text-blue-400 font-medium shrink-0">{user.wallet}</span>
+                <span className="wallet-balance-wrap shrink-0">
+                  {walletPopAmount ? (
+                    <span
+                      key={walletIncreaseSignal?.id}
+                      className={`wallet-balance-float ${walletTravelUp ? "wallet-balance-float--travel" : "wallet-balance-float--linger"}`}
+                    >
+                      +{walletPopAmount}
+                    </span>
+                  ) : null}
+                  <span
+                    className={[
+                      "wallet-balance-value",
+                      walletPulse ? "wallet-balance-value--pulse" : "",
+                      walletPeakGlow ? "wallet-balance-value--peak" : "",
+                    ].join(" ")}
+                  >
+                    {animatedWallet}
+                  </span>
+                </span>
               </div>
 
               <img

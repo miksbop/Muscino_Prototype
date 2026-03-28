@@ -335,7 +335,7 @@
 .muscino-opening-panel { padding: 1.25rem; }
 .muscino-opening-sequence {
   position: relative;
-  min-height: min(650px, 76vh);
+  min-height: min(560px, 70vh);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -385,6 +385,26 @@
   transition: opacity 240ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.muscino-opening-sequence.is-revealed .muscino-reel {
+  opacity: 0.22;
+  transform: scale(0.96);
+  filter: saturate(0.8);
+  transition: opacity 360ms ease, transform 360ms ease, filter 360ms ease;
+}
+
+.muscino-opening-reveal-stage {
+  position: relative;
+  width: min(1040px, 95vw);
+  height: clamp(260px, 46vh, 430px);
+  display: grid;
+  place-items: center;
+}
+
+.muscino-opening-reveal-stage.is-revealed .muscino-reel {
+  transform: translateY(112px) scale(0.95);
+  opacity: 0.3;
+}
+
 .muscino-opening-current {
   width: min(1040px, 94vw);
   min-height: 3.4rem;
@@ -399,6 +419,146 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.muscino-opening-current.is-revealed {
+  font-size: clamp(2.1rem, 3.2vw, 3.5rem);
+  margin-top: 0;
+}
+
+.muscino-opening-featured {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%) scale(0.9);
+  width: min(440px, 56vw);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  z-index: 5;
+  opacity: 0;
+  animation: muscino-featured-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.muscino-opening-featured-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  padding: 4px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px rgb(var(--rarity-rgb, 255 255 255) / 0.35),
+    0 22px 45px rgba(0, 0, 0, 0.58),
+    0 0 52px rgb(var(--rarity-rgb, 255 255 255) / 0.46);
+}
+
+.muscino-opening-featured-card::before {
+  content: "";
+  position: absolute;
+  inset: -65%;
+  background:
+    conic-gradient(
+      from 0deg,
+      rgb(var(--rarity-rgb, 255 255 255) / 0.03),
+      rgb(var(--rarity-rgb, 255 255 255) / 0.95),
+      rgb(var(--rarity-rgb, 255 255 255) / 0.14),
+      rgb(var(--rarity-rgb, 255 255 255) / 0.85),
+      rgb(var(--rarity-rgb, 255 255 255) / 0.03)
+    );
+  animation: muscino-featured-spin 3.6s linear infinite;
+  z-index: 0;
+}
+
+.muscino-opening-featured-card::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 20px;
+  background: rgba(8, 10, 16, 0.55);
+  z-index: 1;
+}
+
+.muscino-opening-featured-card img {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 20px;
+}
+
+.muscino-opening-soundbar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(980px, 90vw);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(7px, 0.72vw, 12px);
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.muscino-opening-soundbar-bar {
+  width: clamp(4px, 0.42vw, 8px);
+  height: clamp(22px, 3.4vh, 46px);
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--rarity-rgb, 255 255 255) / 0.96),
+    rgb(var(--rarity-rgb, 255 255 255) / 0.52)
+  );
+  box-shadow:
+    0 0 18px rgb(var(--rarity-rgb, 255 255 255) / 0.56),
+    0 0 40px rgb(var(--rarity-rgb, 255 255 255) / 0.32);
+  animation: muscino-soundbar-pulse 1100ms ease-in-out infinite;
+  animation-delay: calc(var(--bar-index, 0) * 50ms);
+}
+
+.muscino-opening-soundbar-bar:nth-child(odd) { animation-duration: 900ms; }
+.muscino-opening-soundbar-bar:nth-child(3n) { animation-duration: 1200ms; }
+.muscino-opening-soundbar-bar:nth-child(1) { --bar-index: 1; }
+.muscino-opening-soundbar-bar:nth-child(2) { --bar-index: 2; }
+.muscino-opening-soundbar-bar:nth-child(3) { --bar-index: 3; }
+.muscino-opening-soundbar-bar:nth-child(4) { --bar-index: 4; }
+.muscino-opening-soundbar-bar:nth-child(5) { --bar-index: 5; }
+.muscino-opening-soundbar-bar:nth-child(6) { --bar-index: 6; }
+.muscino-opening-soundbar-bar:nth-child(7) { --bar-index: 7; }
+.muscino-opening-soundbar-bar:nth-child(8) { --bar-index: 8; }
+.muscino-opening-soundbar-bar:nth-child(9) { --bar-index: 9; }
+.muscino-opening-soundbar-bar:nth-child(10) { --bar-index: 10; }
+.muscino-opening-soundbar-bar:nth-child(11) { --bar-index: 11; }
+.muscino-opening-soundbar-bar:nth-child(12) { --bar-index: 12; }
+.muscino-opening-soundbar-bar:nth-child(13) { --bar-index: 13; }
+.muscino-opening-soundbar-bar:nth-child(14) { --bar-index: 14; }
+.muscino-opening-soundbar-bar:nth-child(15) { --bar-index: 15; }
+.muscino-opening-soundbar-bar:nth-child(16) { --bar-index: 16; }
+.muscino-opening-soundbar-bar:nth-child(17) { --bar-index: 16; }
+.muscino-opening-soundbar-bar:nth-child(18) { --bar-index: 15; }
+.muscino-opening-soundbar-bar:nth-child(19) { --bar-index: 14; }
+.muscino-opening-soundbar-bar:nth-child(20) { --bar-index: 13; }
+.muscino-opening-soundbar-bar:nth-child(21) { --bar-index: 12; }
+.muscino-opening-soundbar-bar:nth-child(22) { --bar-index: 11; }
+.muscino-opening-soundbar-bar:nth-child(23) { --bar-index: 10; }
+.muscino-opening-soundbar-bar:nth-child(24) { --bar-index: 9; }
+.muscino-opening-soundbar-bar:nth-child(25) { --bar-index: 8; }
+.muscino-opening-soundbar-bar:nth-child(26) { --bar-index: 7; }
+.muscino-opening-soundbar-bar:nth-child(27) { --bar-index: 6; }
+.muscino-opening-soundbar-bar:nth-child(28) { --bar-index: 5; }
+.muscino-opening-soundbar-bar:nth-child(29) { --bar-index: 4; }
+.muscino-opening-soundbar-bar:nth-child(30) { --bar-index: 3; }
+.muscino-opening-soundbar-bar:nth-child(31) { --bar-index: 2; }
+.muscino-opening-soundbar-bar:nth-child(32) { --bar-index: 1; }
+.muscino-opening-soundbar-bar:nth-child(33),
+.muscino-opening-soundbar-bar:nth-child(34) {
+  opacity: 0;
+  width: 0;
+  margin: 0 28px;
 }
 
 @keyframes muscinoDropSleeve {
@@ -869,6 +1029,10 @@
   transform: scale(1.22);
   opacity: 1;
   filter: saturate(1.06);
+  box-shadow:
+    0 0 0 2px rgb(var(--rarity-rgb, 255 255 255) / 0.75),
+    0 0 28px rgb(var(--rarity-rgb, 255 255 255) / 0.32),
+    0 16px 34px rgba(0,0,0,0.42);
 }
 .muscino-reel-tile[data-delta="1"] {
   transform: scale(1.12);
@@ -914,6 +1078,33 @@
   }
 }
 
+@keyframes muscino-featured-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes muscino-featured-enter {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -52%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -54%) scale(1);
+  }
+}
+
+@keyframes muscino-soundbar-pulse {
+  0%, 100% {
+    height: clamp(16px, 1.7vw, 28px);
+    opacity: 0.42;
+  }
+  50% {
+    height: clamp(34px, 7vw, 120px);
+    opacity: 1;
+  }
+}
+
 /* =========================
    Reduced motion
    ========================= */
@@ -936,5 +1127,9 @@
   .muscino-reel-track {
     animation: none;
     transform: translateX(calc(var(--center) - (var(--final-i) * var(--step))));
+  }
+  .muscino-opening-featured-card::before,
+  .muscino-opening-soundbar-bar {
+    animation: none;
   }
 }

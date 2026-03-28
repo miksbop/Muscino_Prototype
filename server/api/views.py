@@ -12,6 +12,8 @@ from .models import Sleeve, SleeveSong, OwnedSong, Song, MarketListing, Profile
 from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer, MarketListingSerializer
 from .spotify import SpotifyClient, hydrate_songs_from_spotify
 
+DAILY_LOGIN_BONUS = 100
+
 RARITY_WEIGHT = {
     'Common': 35,
     'Uncommon': 25,
@@ -285,9 +287,22 @@ def auth_login(request):
     if user is None:
         return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+    with transaction.atomic():
+        profile = Profile.objects.select_for_update().get(user=user)
+        today = timezone.localdate()
+        daily_bonus_awarded = 0
+        if profile.last_daily_bonus_claimed_at != today:
+            profile.wallet += DAILY_LOGIN_BONUS
+            profile.last_daily_bonus_claimed_at = today
+            profile.save(update_fields=['wallet', 'last_daily_bonus_claimed_at'])
+            daily_bonus_awarded = DAILY_LOGIN_BONUS
+
     login(request, user)
     serializer = UserSerializer(user)
-    return Response({'user': serializer.data})
+    return Response({
+        'user': serializer.data,
+        'walletIncrease': daily_bonus_awarded,
+    })
 
 
 @api_view(['GET'])

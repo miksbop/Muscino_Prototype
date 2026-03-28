@@ -391,6 +391,7 @@ export function PlayPage() {
   const art = SLEEVE_ART[genre];
   const previewA = current?.contents?.[0] ?? null;
   const previewB = current?.contents?.[1] ?? null;
+  const activeSong = (reelTiles[reelFocusIndex] ?? rolled) ?? null;
 
   return (
     <div className={["play-page h-full text-white", `is-${genre.toLowerCase()}`].join(" ")}>
@@ -430,49 +431,68 @@ export function PlayPage() {
                   <div className="muscino-opening-main">
                     {(openState === "rolling" || openState === "revealed") && (
                       <>
-                        <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
+                        {openState !== "revealed" && (
+                          <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
+                        )}
 
-                        <div className="muscino-reel" aria-hidden="true">
-                          <div className="muscino-reel-window">
-                            <div className="muscino-reel-marker" />
-                            <div
-                              key={`reel-${reelTick}`}
-                              className="muscino-reel-track"
-                              ref={reelTrackRef}
-                              style={{ ["--final-i" as const]: finalIndex } as CSSProperties}
-                            >
-                              {reelTiles.map((song, index) => {
-                                const delta = Math.abs(index - finalIndex);
-                                const clampedDelta = delta >= 3 ? 3 : delta;
+                        <div className={["muscino-opening-reveal-stage", openState === "revealed" ? "is-revealed" : ""].join(" ")}>
+                          <div className="muscino-reel" aria-hidden="true">
+                            <div className="muscino-reel-window">
+                              <div className="muscino-reel-marker" />
+                              <div
+                                key={`reel-${reelTick}`}
+                                className="muscino-reel-track"
+                                ref={reelTrackRef}
+                                style={{ ["--final-i" as const]: finalIndex } as CSSProperties}
+                              >
+                                {reelTiles.map((song, index) => {
+                                  const delta = Math.abs(index - finalIndex);
+                                  const clampedDelta = delta >= 3 ? 3 : delta;
 
-                                return (
-                                  <div
-                                    key={`${song.id}-${index}`}
-                                    className={[
-                                      "muscino-reel-tile",
-                                      rarityBorderClass(song.rarity, "strong"),
-                                      rarityGlowClass(song.rarity),
-                                    ].join(" ")}
-                                    data-delta={clampedDelta}
-                                    data-reel-index={index}
-                                    style={{ ["--rarity-rgb" as const]: rarityRgb(song.rarity) } as CSSProperties}
-                                  >
-                                    {song.coverUrl ? <img src={song.coverUrl} alt="" draggable={false} /> : null}
-                                  </div>
-                                );
-                              })}
+                                  return (
+                                    <div
+                                      key={`${song.id}-${index}`}
+                                      className={[
+                                        "muscino-reel-tile",
+                                        rarityBorderClass(song.rarity, "strong"),
+                                        rarityGlowClass(song.rarity),
+                                      ].join(" ")}
+                                      data-delta={clampedDelta}
+                                      data-reel-index={index}
+                                      style={{ ["--rarity-rgb" as const]: rarityRgb(song.rarity) } as CSSProperties}
+                                    >
+                                      {song.coverUrl ? <img src={song.coverUrl} alt="" draggable={false} /> : null}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
                           </div>
+
+                          {openState === "revealed" && (
+                            <div
+                              className="muscino-opening-featured"
+                              style={{ ["--rarity-rgb" as const]: rarityRgb(activeSong?.rarity ?? "Common") } as CSSProperties}
+                            >
+                              <div className="muscino-opening-soundbar" aria-hidden="true">
+                                {Array.from({ length: 34 }).map((_, idx) => (
+                                  <span key={idx} className="muscino-opening-soundbar-bar" />
+                                ))}
+                              </div>
+
+                              <div className="muscino-opening-featured-card">
+                                {activeSong?.coverUrl ? <img src={activeSong.coverUrl} alt="" draggable={false} /> : null}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div
-                          className="muscino-opening-current"
-                          style={
-                            { ["--rarity-rgb" as const]: rarityRgb((reelTiles[reelFocusIndex] ?? rolled)?.rarity ?? "Common") } as CSSProperties
-                          }
+                          className={["muscino-opening-current", openState === "revealed" ? "is-revealed" : ""].join(" ")}
+                          style={{ ["--rarity-rgb" as const]: rarityRgb(activeSong?.rarity ?? "Common") } as CSSProperties}
                         >
-                          {(reelTiles[reelFocusIndex] ?? rolled)?.title ?? "Rolling..."}
-                          {((reelTiles[reelFocusIndex] ?? rolled)?.artist && ` – ${(reelTiles[reelFocusIndex] ?? rolled)?.artist}`) || ""}
+                          {activeSong?.title ?? "Rolling..."}
+                          {(activeSong?.artist && ` – ${activeSong.artist}`) || ""}
                         </div>
                       </>
                     )}
@@ -484,6 +504,17 @@ export function PlayPage() {
                           className="px-5 py-2 rounded-xl bg-blue-500/75 border border-blue-300/20 hover:bg-blue-500/90 transition"
                         >
                           Confirm
+                        </button>
+                      </div>
+                    )}
+
+                    {openState === "rolling" && (
+                      <div className="flex gap-3 pt-1">
+                        <button
+                          onClick={closeOverlay}
+                          className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:border-white/20 transition"
+                        >
+                          Skip
                         </button>
                       </div>
                     )}

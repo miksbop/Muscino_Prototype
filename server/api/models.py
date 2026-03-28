@@ -50,6 +50,7 @@ class Profile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
     display_name = models.CharField(max_length=200, blank=True)
     wallet = models.IntegerField(default=100)
+    last_daily_bonus_claimed_at = models.DateField(blank=True, null=True)
     avatar_url = models.CharField(max_length=1000, blank=True, null=True)
 
     def __str__(self):

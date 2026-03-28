@@ -4,6 +4,7 @@ export type AuthUser = {
   displayName: string;
   wallet: number;
   avatarUrl?: string;
+  walletIncrease?: number;
 };
 
 export type LoginInput = {

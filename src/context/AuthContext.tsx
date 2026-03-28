@@ -8,6 +8,68 @@ import type { AuthUser, LoginInput } from "../types/auth";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
+  const [walletIncreaseSignal, setWalletIncreaseSignal] = useState<{ id: number; amount: number } | null>(null);
+  const walletStorageKey = "muscino:last-seen-wallet-by-user";
+
+  const getStoredWalletByUser = useCallback((): Record<string, number> => {
+    try {
+      const raw = window.localStorage.getItem(walletStorageKey);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, number>;
+      return typeof parsed === "object" && parsed ? parsed : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const setStoredWalletForUser = useCallback((userId: string, wallet: number) => {
+    const next = getStoredWalletByUser();
+    next[userId] = wallet;
+    try {
+      window.localStorage.setItem(walletStorageKey, JSON.stringify(next));
+    } catch {
+      // no-op: localStorage unavailable
+    }
+  }, [getStoredWalletByUser]);
+
+  const emitWalletIncreaseSignal = useCallback((amount: number) => {
+    if (amount <= 0) return;
+    setWalletIncreaseSignal({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      amount,
+    });
+  }, []);
+
+  const updateUserAndSignal = useCallback(
+    (next: AuthUser | null, explicitIncrease = 0) => {
+      setUser((prev) => {
+        let amountToSignal = Math.max(explicitIncrease, 0);
+
+        if (next) {
+          if (amountToSignal > 0) {
+            // explicit server-side reward payload takes precedence to avoid double counting
+          } else if (prev && next.id === prev.id && next.wallet > prev.wallet) {
+            amountToSignal += next.wallet - prev.wallet;
+          } else if (!prev) {
+            const previousSeenWallet = getStoredWalletByUser()[next.id];
+            if (typeof previousSeenWallet === "number" && next.wallet > previousSeenWallet) {
+              amountToSignal += next.wallet - previousSeenWallet;
+            }
+          }
+        }
+
+        if (amountToSignal > 0) {
+          emitWalletIncreaseSignal(amountToSignal);
+        }
+
+        if (!next) return null;
+        const { walletIncrease: _walletIncrease, ...rest } = next;
+        setStoredWalletForUser(rest.id, rest.wallet);
+        return rest;
+      });
+    },
+    [emitWalletIncreaseSignal, getStoredWalletByUser, setStoredWalletForUser],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -15,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const current = await api.getSession();
-        if (!cancelled) setUser(current);
+        if (!cancelled) updateUserAndSignal(current);
       } finally {
         if (!cancelled) setStatus("ready");
       }
@@ -28,13 +90,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (input: LoginInput) => {
     const next = await api.login(input);
-    setUser(next);
-  }, []);
+    updateUserAndSignal(next, next.walletIncrease ?? 0);
+  }, [updateUserAndSignal]);
 
   const signUp = useCallback(async (input: LoginInput) => {
     const next = await api.register(input);
-    setUser(next);
-  }, []);
+    updateUserAndSignal(next);
+  }, [updateUserAndSignal]);
 
   const signOut = useCallback(async () => {
     await api.logout();
@@ -43,20 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     const current = await api.getSession();
-    setUser(current);
-  }, []);
+    updateUserAndSignal(current);
+  }, [updateUserAndSignal]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       status,
       isSignedIn: !!user,
+      walletIncreaseSignal,
       signIn,
       signUp,
       signOut,
       refreshUser,
     }),
-    [user, status, signIn, signUp, signOut, refreshUser],
+    [user, status, walletIncreaseSignal, signIn, signUp, signOut, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

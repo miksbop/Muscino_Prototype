@@ -7,6 +7,7 @@ export type AuthContextValue = {
   user: AuthUser | null;
   status: AuthStatus;
   isSignedIn: boolean;
+  walletIncreaseSignal: { id: number; amount: number } | null;
   signIn: (input: LoginInput) => Promise<void>;
   signUp: (input: LoginInput) => Promise<void>;
   signOut: () => Promise<void>;
