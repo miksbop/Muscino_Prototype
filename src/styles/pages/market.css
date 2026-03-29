@@ -6,7 +6,7 @@
 
 .market-side-label {
   position: absolute;
-  left: -5.5rem;
+  left: -4rem;
   top: 7.25rem;
   transform: translateX(-.50rem);
   z-index: 3;

@@ -95,11 +95,11 @@ export function ProfilePage() {
 
   const profileShellStyle = useMemo(
     () => ({
-      background: `linear-gradient(90deg, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 0%, rgb(${Math.max(themeRgb.r - 60, 0)},${Math.max(themeRgb.g - 60, 0)},${Math.max(themeRgb.b - 60, 0)}) 45%, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 100%)`,
+            background: `linear-gradient(90deg, rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},${profileCardOpacity}) 0%, rgba(${Math.max(themeRgb.r - 60, 0)},${Math.max(themeRgb.g - 60, 0)},${Math.max(themeRgb.b - 60, 0)},${profileCardOpacity}) 45%, rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},${profileCardOpacity}) 100%)`,
       borderColor: `rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b})`,
       boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.25)`,
     }),
-    [themeRgb],
+    [profileCardOpacity, themeRgb],
   );
 
   const paneStyle = useMemo(
