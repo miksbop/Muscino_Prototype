@@ -5,6 +5,71 @@
   margin-left: auto;
   margin-right: auto;
 }
+@keyframes profile-shell-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(26px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes profile-shell-sheen {
+  0% {
+    transform: translateX(-170%) skewX(-16deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.66;
+  }
+  100% {
+    transform: translateX(170%) skewX(-16deg);
+    opacity: 0;
+  }
+}
+
+.profile-shell-animated {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transform-origin: center;
+  animation: profile-shell-pop-in 460ms cubic-bezier(0.16, 1, 0.3, 1)
+    both;
+}
+
+.profile-shell-animated::after {
+  content: "";
+  position: absolute;
+  inset: -5%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(
+    112deg,
+    transparent 0%,
+    rgba(var(--profile-theme-rgb, 160 160 160) / 0) 35%,
+    rgba(var(--profile-theme-rgb, 160 160 160) / 0.44) 46%,
+    rgba(255 255 255 / 0.2) 50%,
+    rgba(var(--profile-theme-rgb, 160 160 160) / 0.32) 57%,
+    rgba(var(--profile-theme-rgb, 160 160 160) / 0) 66%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: profile-shell-sheen 1050ms ease-out 560ms 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-shell-animated {
+    animation: none;
+  }
+
+  .profile-shell-animated::after {
+    animation: none;
+    opacity: 0;
+  }
+}
 
 /* Firefox fallback (no zoom support). */
 @supports not (zoom: 1) {

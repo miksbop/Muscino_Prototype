@@ -1,5 +1,4 @@
 import type { AuthUser, LoginInput } from "../types/auth";
-import { mockInventory as MOCK_INVENTORY } from "../mock/mockData";
 import { MOCK_SLEEVES } from "../mock/sleeves";
 import type { OwnedSong, Rarity } from "../types/song";
 
@@ -9,7 +8,7 @@ export type RerollInventoryResponse = {
   rolledRarity: Rarity;
 };
 
-import type { Sleeve, SleeveSong } from "../types/sleeve";
+import type { Sleeve } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
 import type { ProfileView } from "../types/profile";
 
@@ -33,45 +32,9 @@ async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> 
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Fallback mock state (used if backend unreachable during dev)
-let mockInventory: OwnedSong[] = [...MOCK_INVENTORY];
-
-function pickWeightedByRarity(items: SleeveSong[]): SleeveSong {
-  const weightByRarity: Record<Rarity, number> = {
-    Common: 35,
-    Uncommon: 25,
-    Rare: 20,
-    Epic: 15,
-    Legendary: 5,
-  };
-
-  const weightedItems = items.map((item) => ({ item, weight: weightByRarity[item.rarity] ?? 1 }));
-  const totalWeight = weightedItems.reduce((sum, x) => sum + x.weight, 0);
-
-  let roll = Math.random() * totalWeight;
-  for (const x of weightedItems) {
-    roll -= x.weight;
-    if (roll <= 0) return x.item;
-  }
-
-  return weightedItems[weightedItems.length - 1].item;
-}
-
-function toOwnedSong(song: SleeveSong): OwnedSong {
-  return {
-    ...song,
-    obtainedAt: new Date().toISOString(),
-  };
-}
-
 export const api = {
   async getInventory(): Promise<OwnedSong[]> {
-    try {
-      return await fetchJson<OwnedSong[]>("/api/inventory/");
-    } catch {
-      await delay(200);
-      return mockInventory;
-    }
+    return await fetchJson<OwnedSong[]>("/api/inventory/");
   },
 
   async getSleeves(): Promise<Sleeve[]> {
@@ -84,24 +47,10 @@ export const api = {
   },
 
   async openSleeve(sleeveId: string): Promise<OwnedSong> {
-    try {
-      return await fetchJson<OwnedSong>(`/api/sleeves/${encodeURIComponent(sleeveId)}/open`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-    } catch {
-      await delay(400);
-
-      const sleeve = MOCK_SLEEVES.find((s) => s.id === sleeveId);
-      if (!sleeve) throw new Error("Sleeve not found");
-      if (!sleeve.contents.length) throw new Error("Sleeve is empty");
-
-      const rolled = pickWeightedByRarity(sleeve.contents);
-      const owned = toOwnedSong(rolled);
-
-      mockInventory = [owned, ...mockInventory];
-      return owned;
-    }
+    return await fetchJson<OwnedSong>(`/api/sleeves/${encodeURIComponent(sleeveId)}/open`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
   },
 
   async getSession(): Promise<AuthUser | null> {
@@ -167,12 +116,7 @@ export const api = {
 
 
   async getInventoryByOwner(username: string): Promise<OwnedSong[]> {
-    try {
-      return await fetchJson<OwnedSong[]>(`/api/inventory/?owner=${encodeURIComponent(username)}`);
-    } catch {
-      await delay(200);
-      return mockInventory;
-    }
+    return await fetchJson<OwnedSong[]>(`/api/inventory/?owner=${encodeURIComponent(username)}`);
   },
 
     async rerollInventorySongs(input: { ownedSongIds: number[]; artistKeyword: string }): Promise<RerollInventoryResponse> {
@@ -196,7 +140,7 @@ export const api = {
     if (typeof input.themeColor === "string") formData.append("themeColor", input.themeColor);
     if (input.avatarFile) formData.append("avatar", input.avatarFile);
 
-    const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/edit/`, {
+    const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/update/`, {
       method: "PATCH",
       credentials: "include",
       body: formData,
@@ -215,6 +159,6 @@ export const api = {
   },
 
   __resetMocks() {
-    mockInventory = [...MOCK_INVENTORY];
+    // no-op now that authenticated endpoints no longer silently fallback to local mock state
   },
 };

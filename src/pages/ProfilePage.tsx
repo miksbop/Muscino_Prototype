@@ -218,8 +218,11 @@ export function ProfilePage() {
           }}
         >
           <div
-            className="h-full w-full rounded-2xl border p-8"
-            style={profileShellStyle as CSSProperties}
+            className="profile-shell-animated h-full w-full rounded-2xl border p-8"
+            style={{
+              ...profileShellStyle,
+              ["--profile-theme-rgb" as const]: `${themeRgb.r} ${themeRgb.g} ${themeRgb.b}`,
+            } as CSSProperties}
           >
             <div className="mb-6 flex items-center justify-between">
               <h1 className="text-4xl font-light text-neutral-100">

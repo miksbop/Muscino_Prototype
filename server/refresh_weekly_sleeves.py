@@ -2,12 +2,12 @@
 Generate weekly genre sleeves from Spotify WITHOUT touching player inventory.
 
 Product rules for each generated sleeve:
-- exactly 16 songs
-- 2 Legendary
+- exactly 12 songs
+- 1 Legendary
 - 2 Epic
-- 3 Rare
-- 4 Uncommon
-- 5 Common
+- 2 Rare
+- 3 Uncommon
+- 4 Common
 
 This script intentionally updates only Song/Sleeve/SleeveSong data.
 It does not delete OwnedSong, User, or Profile rows.
@@ -44,14 +44,73 @@ SPOTIFY_ARTIST_QUERY_DELAY_SECONDS = float(os.environ.get("SPOTIFY_ARTIST_QUERY_
 MAX_REMOTE_SEARCH_CALLS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_MAX_SEARCH_CALLS_PER_GENRE", "60"))
 
 TARGET_DISTRIBUTION: dict[str, int] = {
-    "Legendary": 2,
+    "Legendary": 1,
     "Epic": 2,
-    "Rare": 3,
-    "Uncommon": 4,
-    "Common": 5,
+    "Rare": 2,
+    "Uncommon": 3,
+    "Common": 4,
 }
 TOTAL_SLEEVE_SIZE = sum(TARGET_DISTRIBUTION.values())
 _LAST_SPOTIFY_REQUEST_TS = 0.0
+
+LOCAL_NOTABLE_CATALOG: dict[str, list[dict[str, str | None]]] = {
+    "Pop": [
+        {"track_id": "local_pop_blinding_lights", "title": "Blinding Lights", "artist": "The Weeknd", "cover_url": "https://upload.wikimedia.org/wikipedia/en/c/c1/The_Weeknd_-_After_Hours.png"},
+        {"track_id": "local_pop_shape_of_you", "title": "Shape of You", "artist": "Ed Sheeran", "cover_url": "https://upload.wikimedia.org/wikipedia/en/4/45/Divide_cover.png"},
+        {"track_id": "local_pop_levitating", "title": "Levitating", "artist": "Dua Lipa", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f5/Dua_Lipa_-_Future_Nostalgia_%28Official_Album_Cover%29.png"},
+        {"track_id": "local_pop_bad_guy", "title": "bad guy", "artist": "Billie Eilish", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/09/Billie_Eilish_-_When_We_All_Fall_Asleep%2C_Where_Do_We_Go%3F.png"},
+        {"track_id": "local_pop_uptown_funk", "title": "Uptown Funk", "artist": "Mark Ronson, Bruno Mars", "cover_url": "https://upload.wikimedia.org/wikipedia/en/4/47/Mark_Ronson_-_Uptown_Funk_%28feat._Bruno_Mars%29.png"},
+        {"track_id": "local_pop_rolling_in_the_deep", "title": "Rolling in the Deep", "artist": "Adele", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/1b/Adele_-_21.png"},
+        {"track_id": "local_pop_firework", "title": "Firework", "artist": "Katy Perry", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/8f/Teenage_Dream_Katy_Perry.png"},
+        {"track_id": "local_pop_thank_u_next", "title": "thank u, next", "artist": "Ariana Grande", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/9e/Thank_U%2C_Next_Ariana_Grande.png"},
+        {"track_id": "local_pop_as_it_was", "title": "As It Was", "artist": "Harry Styles", "cover_url": "https://upload.wikimedia.org/wikipedia/en/b/b7/Harry_Styles_-_Harry%27s_House.png"},
+        {"track_id": "local_pop_toxic", "title": "Toxic", "artist": "Britney Spears", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/9a/Britney_Spears_-_In_the_Zone.png"},
+        {"track_id": "local_pop_halo", "title": "Halo", "artist": "Beyoncé", "cover_url": "https://upload.wikimedia.org/wikipedia/en/b/b7/I_Am..._Sasha_Fierce.png"},
+        {"track_id": "local_pop_call_me_maybe", "title": "Call Me Maybe", "artist": "Carly Rae Jepsen", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/8b/Carly_Rae_Jepsen_-_Kiss.png"},
+    ],
+    "Rock": [
+        {"track_id": "local_rock_smells_like_teen_spirit", "title": "Smells Like Teen Spirit", "artist": "Nirvana", "cover_url": "https://upload.wikimedia.org/wikipedia/en/b/b7/NirvanaNevermindalbumcover.jpg"},
+        {"track_id": "local_rock_bohemian_rhapsody", "title": "Bohemian Rhapsody", "artist": "Queen", "cover_url": "https://upload.wikimedia.org/wikipedia/en/e/e3/Queen_A_Night_At_The_Opera.png"},
+        {"track_id": "local_rock_in_the_end", "title": "In the End", "artist": "Linkin Park", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/2f/Linkin_Park_Hybrid_Theory_Album_Cover.jpg"},
+        {"track_id": "local_rock_sweet_child_o_mine", "title": "Sweet Child o' Mine", "artist": "Guns N' Roses", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/60/GunsnRosesAppetiteforDestructionalbumcover.jpg"},
+        {"track_id": "local_rock_mr_brightside", "title": "Mr. Brightside", "artist": "The Killers", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/17/HotFussalbumcover.jpg"},
+        {"track_id": "local_rock_everlong", "title": "Everlong", "artist": "Foo Fighters", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/0d/Foo_Fighters-The_Colour_and_the_Shape.jpg"},
+        {"track_id": "local_rock_chop_suey", "title": "Chop Suey!", "artist": "System Of A Down", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/64/SystemofaDownToxicityalbumcover.jpg"},
+        {"track_id": "local_rock_boulevard_of_broken_dreams", "title": "Boulevard of Broken Dreams", "artist": "Green Day", "cover_url": "https://upload.wikimedia.org/wikipedia/en/a/ae/Green_Day_-_American_Idiot_album_cover.png"},
+        {"track_id": "local_rock_seven_nation_army", "title": "Seven Nation Army", "artist": "The White Stripes", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/02/Elephant_album_cover.png"},
+        {"track_id": "local_rock_bring_me_to_life", "title": "Bring Me to Life", "artist": "Evanescence", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/25/Evanescence_-_Fallen.png"},
+        {"track_id": "local_rock_dont_stop_believin", "title": "Don't Stop Believin'", "artist": "Journey", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/09/JourneyEscapealbumcover.jpg"},
+        {"track_id": "local_rock_another_brick_in_the_wall", "title": "Another Brick in the Wall, Pt. 2", "artist": "Pink Floyd", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/13/PinkFloydWallCoverOriginalNoText.jpg"},
+    ],
+    "Rap": [
+        {"track_id": "local_rap_lose_yourself", "title": "Lose Yourself", "artist": "Eminem", "cover_url": "https://upload.wikimedia.org/wikipedia/en/a/ad/8MileSoundtrack.jpg"},
+        {"track_id": "local_rap_humble", "title": "HUMBLE.", "artist": "Kendrick Lamar", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/51/Kendrick_Lamar_-_Damn.png"},
+        {"track_id": "local_rap_gods_plan", "title": "God's Plan", "artist": "Drake", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/90/Scorpion_by_Drake.jpg"},
+        {"track_id": "local_rap_sicko_mode", "title": "SICKO MODE", "artist": "Travis Scott", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/0b/Travis_Scott_-_Astroworld.png"},
+        {"track_id": "local_rap_juicy", "title": "Juicy", "artist": "The Notorious B.I.G.", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/13/Ready_to_Die.jpg"},
+        {"track_id": "local_rap_protect_ya_neck", "title": "Protect Ya Neck", "artist": "Wu-Tang Clan", "cover_url": "https://upload.wikimedia.org/wikipedia/en/7/7d/Wu-TangClanEntertheWu-Tangalbumcover.jpg"},
+        {"track_id": "local_rap_no_role_modelz", "title": "No Role Modelz", "artist": "J. Cole", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/32/J._Cole_-_2014_Forest_Hills_Drive.png"},
+        {"track_id": "local_rap_it_was_a_good_day", "title": "It Was a Good Day", "artist": "Ice Cube", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/11/Ice_Cube-The_Predator_%28album_cover%29.jpg"},
+        {"track_id": "local_rap_empire_state_of_mind", "title": "Empire State of Mind", "artist": "Jay-Z, Alicia Keys", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/09/Jay-Z_-_The_Blueprint_3.jpg"},
+        {"track_id": "local_rap_mo_bamba", "title": "Mo Bamba", "artist": "Sheck Wes", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/2d/Sheck_Wes_-_Mudboy.png"},
+        {"track_id": "local_rap_bodak_yellow", "title": "Bodak Yellow", "artist": "Cardi B", "cover_url": "https://upload.wikimedia.org/wikipedia/en/7/7f/Cardi_B_Invasion_of_Privacy.jpg"},
+        {"track_id": "local_rap_still_dre", "title": "Still D.R.E.", "artist": "Dr. Dre, Snoop Dogg", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/01/Dr._Dre_-_2001.png"},
+    ],
+    "Indie": [
+        {"track_id": "local_indie_the_less_i_know_the_better", "title": "The Less I Know the Better", "artist": "Tame Impala", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/9a/Tame_Impala_-_Currents.png"},
+        {"track_id": "local_indie_do_i_wanna_know", "title": "Do I Wanna Know?", "artist": "Arctic Monkeys", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/26/Arctic_Monkeys_-_AM.png"},
+        {"track_id": "local_indie_somebody_else", "title": "Somebody Else", "artist": "The 1975", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/9b/The_1975_-_I_Like_It_When_You_Sleep%2C_for_You_Are_So_Beautiful_yet_So_Unaware_of_It.png"},
+        {"track_id": "local_indie_sweater_weather", "title": "Sweater Weather", "artist": "The Neighbourhood", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/0d/I_Love_You._%28The_Neighbourhood_album%29.png"},
+        {"track_id": "local_indie_space_song", "title": "Space Song", "artist": "Beach House", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/0c/Beach_House_-_Depression_Cherry.png"},
+        {"track_id": "local_indie_heat_waves", "title": "Heat Waves", "artist": "Glass Animals", "cover_url": "https://upload.wikimedia.org/wikipedia/en/b/b0/Glass_Animals_-_Dreamland.png"},
+        {"track_id": "local_indie_chamber_of_reflection", "title": "Chamber of Reflection", "artist": "Mac DeMarco", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/83/MacDemarcoSaladDays.jpg"},
+        {"track_id": "local_indie_new_slang", "title": "New Slang", "artist": "The Shins", "cover_url": "https://upload.wikimedia.org/wikipedia/en/c/c2/The_Shins_-_Oh%2C_Inverted_World.jpg"},
+        {"track_id": "local_indie_first_day_of_my_life", "title": "First Day of My Life", "artist": "Bright Eyes", "cover_url": "https://upload.wikimedia.org/wikipedia/en/4/4f/Bright_Eyes_-_I%27m_Wide_Awake%2C_It%27s_Morning.jpg"},
+        {"track_id": "local_indie_riptide", "title": "Riptide", "artist": "Vance Joy", "cover_url": "https://upload.wikimedia.org/wikipedia/en/c/c5/Vance_Joy_Dream_Your_Life_Away_album_cover.jpg"},
+        {"track_id": "local_indie_pumped_up_kicks", "title": "Pumped Up Kicks", "artist": "Foster the People", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/87/Foster_the_People_-_Torches.png"},
+        {"track_id": "local_indie_take_me_out", "title": "Take Me Out", "artist": "Franz Ferdinand", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/04/Franz_Ferdinand_-_Franz_Ferdinand.png"},
+    ],
+}
 
 GENRE_CONFIG: dict[str, dict[str, Any]] = {
     "Pop": {
@@ -300,6 +359,24 @@ def _search_tracks(token: str, query_text: str, limit: int, market: str) -> list
 
 
 def _local_candidates_for_genre(genre: str, limit: int) -> list[Candidate]:
+    curated = LOCAL_NOTABLE_CATALOG.get(genre, [])
+    if curated:
+        return [
+            Candidate(
+                track_id=str(row["track_id"]),
+                title=str(row["title"]),
+                artist=str(row["artist"]),
+                artist_id=None,
+                cover_url=row.get("cover_url"),
+                spotify_url=None,
+                popularity=None,
+                release_date=None,
+                source_type="local_curated",
+                source_query=genre,
+            )
+            for row in curated[:max(limit, TOTAL_SLEEVE_SIZE)]
+        ]
+
     rows = (
         Song.objects.filter(genre__icontains=genre)
         .order_by("id")[: max(limit * 5, 60)]
@@ -397,6 +474,7 @@ def score_candidates(candidates: list[Candidate], genre: str) -> list[ScoredCand
         source_boost = {
             "genre_search": 1.0,
             "artist_search": 0.9,
+            "local_curated": 0.92,
             "local_catalog": 0.82,
         }.get(c.source_type, 0.85)
         jitter = _stable_jitter(f"{genre}:{c.track_id}")
@@ -553,8 +631,14 @@ def upsert_sleeve_entries(genre: str, chosen: list[tuple[ScoredCandidate, str]])
     )
 
 
-def refresh_genre_sleeve(token: str, genre: str, limit: int, market: str) -> None:
-    candidates = fetch_candidates_for_genre(token, genre=genre, limit=limit, market=market)
+def refresh_genre_sleeve(token: str | None, genre: str, limit: int, market: str, *, local_only: bool = False) -> None:
+    if local_only:
+        candidates = _local_candidates_for_genre(genre=genre, limit=max(limit, TOTAL_SLEEVE_SIZE))
+    else:
+        if not token:
+            raise RuntimeError("Spotify token is required unless --local-only is used")
+        candidates = fetch_candidates_for_genre(token, genre=genre, limit=limit, market=market)
+
     if not candidates:
         print(f"No candidates returned for genre={genre}; skipping")
         return
@@ -571,24 +655,33 @@ def refresh_genre_sleeve(token: str, genre: str, limit: int, market: str) -> Non
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh weekly sleeves from Spotify")
-    parser.add_argument("--genres", nargs="+", default=["Pop", "Rock", "Rap"])
+    parser.add_argument("--genres", nargs="+", default=["Pop", "Rock", "Rap", "Indie"])
     parser.add_argument("--limit", type=int, default=30, help="per-source search limit")
     parser.add_argument("--market", default="US")
+    parser.add_argument(
+        "--local-only",
+        action="store_true",
+        help="skip Spotify entirely and refresh sleeves from local Song catalog only",
+    )
     args = parser.parse_args()
 
-    client_id = os.environ.get("SPOTIFY_CLIENT_ID")
-    client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        raise RuntimeError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are required")
+    token: str | None = None
+    if not args.local_only:
+        client_id = os.environ.get("SPOTIFY_CLIENT_ID")
+        client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+        if not client_id or not client_secret:
+            raise RuntimeError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are required unless --local-only is used")
 
-    try:
-        token = spotify_token(client_id, client_secret)
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"Spotify token request failed: {exc.code} {detail}") from exc
+        try:
+            token = spotify_token(client_id, client_secret)
+        except error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="ignore")
+            raise RuntimeError(f"Spotify token request failed: {exc.code} {detail}") from exc
+    else:
+        print("Running weekly sleeve refresh in local-only mode (no Spotify requests).")
 
     for genre in args.genres:
-        refresh_genre_sleeve(token, genre=genre, limit=args.limit, market=args.market)
+        refresh_genre_sleeve(token, genre=genre, limit=args.limit, market=args.market, local_only=args.local_only)
 
 
 if __name__ == "__main__":

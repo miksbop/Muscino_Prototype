@@ -12,8 +12,10 @@ SPOTIFY_AUTH_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACKS_URL = "https://api.spotify.com/v1/tracks"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 TOKEN_CACHE_KEY = "spotify:client-token"
+THROTTLE_UNTIL_CACHE_KEY = "spotify:throttle-until"
 DEFAULT_TRACK_CACHE_TTL = int(os.environ.get("SPOTIFY_TRACK_CACHE_TTL_SECONDS", "3600"))
 SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS = float(os.environ.get("SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS", "0.25"))
+SPOTIFY_MAX_RETRIES = int(os.environ.get("SPOTIFY_MAX_RETRIES", "2"))
 
 
 @dataclass
@@ -55,6 +57,42 @@ class SpotifyClient:
             time.sleep(SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS - elapsed)
         self._last_request_ts = time.monotonic()
 
+    def _wait_for_global_backoff(self) -> None:
+        throttle_until = cache.get(THROTTLE_UNTIL_CACHE_KEY)
+        if throttle_until is None:
+            return
+        try:
+            throttle_until = float(throttle_until)
+        except (TypeError, ValueError):
+            return
+
+        delay = throttle_until - time.time()
+        if delay > 0:
+            time.sleep(delay)
+
+    def _set_global_backoff(self, retry_after_seconds: int | None) -> None:
+        seconds = retry_after_seconds if (retry_after_seconds is not None and retry_after_seconds > 0) else 1
+        throttle_until = time.time() + seconds
+        cache.set(THROTTLE_UNTIL_CACHE_KEY, throttle_until, timeout=max(1, seconds))
+
+    def _request_json(self, req: request.Request, timeout: int, *, allow_retry: bool = True) -> dict[str, Any] | None:
+        attempts = max(1, SPOTIFY_MAX_RETRIES + 1) if allow_retry else 1
+        for attempt in range(attempts):
+            self._wait_for_global_backoff()
+            self._pace_requests()
+            try:
+                with request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except error.HTTPError as exc:
+                self._capture_http_error(exc)
+                if exc.code == 429 and attempt < attempts - 1:
+                    self._set_global_backoff(self.last_retry_after_seconds)
+                    continue
+                return None
+            except (error.URLError, TimeoutError, ValueError):
+                return None
+        return None
+
     def _token_from_spotify(self) -> tuple[str, int]:
         creds = f"{self.client_id}:{self.client_secret}".encode("utf-8")
         auth = base64.b64encode(creds).decode("ascii")
@@ -68,9 +106,10 @@ class SpotifyClient:
             },
             method="POST",
         )
-        self._pace_requests()
-        with request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
+        payload = self._request_json(req, timeout=15, allow_retry=True)
+        if not payload or "access_token" not in payload:
+            raise ValueError("spotify auth response missing access token")
+        data = payload
         return data["access_token"], int(data.get("expires_in", 3600))
 
     def access_token(self) -> str | None:
@@ -107,14 +146,8 @@ class SpotifyClient:
                 headers={"Authorization": f"Bearer {token}"},
                 method="GET",
             )
-            try:
-                self._pace_requests()
-                with request.urlopen(req, timeout=20) as resp:
-                    payload = json.loads(resp.read().decode("utf-8"))
-            except error.HTTPError as exc:
-                self._capture_http_error(exc)
-                continue
-            except (error.URLError, TimeoutError, ValueError):
+            payload = self._request_json(req, timeout=20)
+            if not payload:
                 continue
 
             for track in payload.get("tracks", []):
@@ -138,14 +171,8 @@ class SpotifyClient:
             headers={"Authorization": f"Bearer {token}"},
             method="GET",
         )
-        try:
-            self._pace_requests()
-            with request.urlopen(req, timeout=20) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-        except error.HTTPError as exc:
-            self._capture_http_error(exc)
-            return []
-        except (error.URLError, TimeoutError, ValueError):
+        payload = self._request_json(req, timeout=20)
+        if not payload:
             return []
 
         tracks = payload.get("tracks", {}).get("items", [])

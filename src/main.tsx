@@ -20,6 +20,7 @@ import "./styles/pages/home.css"; // Home page styles
 import "./styles/pages/collection.css"; // Collection page style
 import "./styles/pages/play.css"; // Play page style
 import "./styles/pages/market.css"; // Market page scale corrections
+import "./styles/pages/profile.css"; // Profile page animations/effects
 
 
 initializeFontLab();
