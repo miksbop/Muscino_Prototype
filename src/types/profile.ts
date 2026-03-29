@@ -13,6 +13,7 @@ export type ProfileView = {
   themeColor: string;
   profileBackground: string;
   profileBackgroundUrl?: string | null;
+  profileBackgroundOpacity: number;
   favoriteSong: OwnedSong | null;
   favoriteSongInventoryCount: number;
   showcaseSongs: OwnedSong[];

@@ -176,6 +176,7 @@ def _serialize_profile_response(user: User):
     theme_color = getattr(profile, 'theme_color', '#737373') or '#737373'
 
     profile_background = getattr(profile, 'profile_background', '') or ''
+    profile_background_opacity = getattr(profile, 'profile_background_opacity', 1.0) or 1.0
 
     favorite_song = None
     favorite_song_inventory_count = 0
@@ -205,6 +206,7 @@ def _serialize_profile_response(user: User):
         'themeColor': theme_color,
         'profileBackground': profile_background,
         'profileBackgroundUrl': _profile_background_url(profile_background),
+        'profileBackgroundOpacity': max(0.5, min(float(profile_background_opacity), 1.0)),
         'favoriteSong': favorite_song,
         'favoriteSongInventoryCount': favorite_song_inventory_count,
         'showcaseSongs': showcase_data,
@@ -388,7 +390,7 @@ def profile_update(request, username):
     favorite_song_id = request.data.get('favoriteSongId')
     avatar_file = request.FILES.get('avatar')
     profile_background = request.data.get('profileBackground')
-
+    profile_background_opacity = request.data.get('profileBackgroundOpacity')
     updated_fields: list[str] = []
 
     if bio is not None and hasattr(profile, 'bio'):
@@ -437,6 +439,18 @@ def profile_update(request, username):
         else:
             return Response({'detail': 'binary avatar uploads are not enabled on this server'}, status=status.HTTP_400_BAD_REQUEST)
 
+    if profile_background_opacity is not None and hasattr(profile, 'profile_background_opacity'):
+        try:
+            profile_background_opacity = float(profile_background_opacity)
+        except (TypeError, ValueError):
+            return Response({'detail': 'profileBackgroundOpacity must be a number between 0.5 and 1.0'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if profile_background_opacity < 0.5 or profile_background_opacity > 1.0:
+            return Response({'detail': 'profileBackgroundOpacity must be between 0.5 and 1.0'}, status=status.HTTP_400_BAD_REQUEST)
+
+        profile.profile_background_opacity = profile_background_opacity
+        updated_fields.append('profile_background_opacity')
+        
     if profile_background is not None and hasattr(profile, 'profile_background'):
         profile_background = str(profile_background).strip()
         if profile_background == '':

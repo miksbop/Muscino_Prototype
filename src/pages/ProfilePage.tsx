@@ -43,6 +43,7 @@ export function ProfilePage() {
   const [backgroundOptions, setBackgroundOptions] = useState<ProfileBackgroundOption[]>([]);
   const [isLoadingBackgroundOptions, setIsLoadingBackgroundOptions] = useState(false);
   const [editProfileBackground, setEditProfileBackground] = useState("");
+  const [editProfileBackgroundOpacity, setEditProfileBackgroundOpacity] = useState(1);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
   const [friendRequestMessage, setFriendRequestMessage] = useState<string | null>(null);
@@ -87,10 +88,14 @@ export function ProfilePage() {
 
   const activeThemeColor = profile?.themeColor || "#737373";
   const themeRgb = useMemo(() => hexToRgb(activeThemeColor), [activeThemeColor]);
+  const profileCardOpacity = useMemo(
+    () => Math.max(0.5, Math.min(profile?.profileBackgroundOpacity ?? 1, 1)),
+    [profile?.profileBackgroundOpacity],
+  );
 
   const profileShellStyle = useMemo(
     () => ({
-      background: `linear-gradient(90deg, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 0%, rgb(14,14,18) 45%, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 100%)`,
+      background: `linear-gradient(90deg, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 0%, rgb(${Math.max(themeRgb.r - 60, 0)},${Math.max(themeRgb.g - 60, 0)},${Math.max(themeRgb.b - 60, 0)}) 45%, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 100%)`,
       borderColor: `rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b})`,
       boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.25)`,
     }),
@@ -99,10 +104,10 @@ export function ProfilePage() {
 
   const paneStyle = useMemo(
     () => ({
-      background: `rgb(${Math.max(themeRgb.r - 38, 0)},${Math.max(themeRgb.g - 38, 0)},${Math.max(themeRgb.b - 38, 0)})`,
+      background: `rgba(${Math.max(themeRgb.r - 38, 0)},${Math.max(themeRgb.g - 38, 0)},${Math.max(themeRgb.b - 38, 0)},${profileCardOpacity})`,
       border: `1px solid rgb(${Math.max(themeRgb.r - 20, 0)},${Math.max(themeRgb.g - 20, 0)},${Math.max(themeRgb.b - 20, 0)})`,
     }),
-    [themeRgb],
+    [profileCardOpacity, themeRgb],
   );
 
   const pageBackgroundStyle = useMemo(() => {
@@ -142,6 +147,7 @@ export function ProfilePage() {
     setEditThemeColor(profile.themeColor || "#737373");
     setEditFavoriteSongId(profile.favoriteSong?.songId || "");
     setEditProfileBackground(profile.profileBackground || "");
+    setEditProfileBackgroundOpacity(Math.max(0.5, Math.min(profile.profileBackgroundOpacity ?? 1, 1)));
     setEditInventorySongs(profile.showcaseSongs);
     setEditAvatarFile(null);
     if (editAvatarPreviewUrl) URL.revokeObjectURL(editAvatarPreviewUrl);
@@ -228,6 +234,7 @@ export function ProfilePage() {
         favoriteSongId: editFavoriteSongId,
         avatarFile: editAvatarFile,
         profileBackground: editProfileBackground,
+        profileBackgroundOpacity: editProfileBackgroundOpacity,
       });
       setProfile(updated);
       await refreshUser();
@@ -553,6 +560,23 @@ export function ProfilePage() {
                 No background files found in <code>/public/backgrounds</code>.
               </p>
             )}
+
+            <label className="mb-2 block text-sm font-medium" htmlFor="profile-card-opacity-input">
+              Profile card opacity ({Math.round(editProfileBackgroundOpacity * 100)}%)
+            </label>
+            <input
+              id="profile-card-opacity-input"
+              type="range"
+              min={50}
+              max={100}
+              step={1}
+              value={Math.round(editProfileBackgroundOpacity * 100)}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setEditProfileBackgroundOpacity(Math.max(0.5, Math.min(value / 100, 1)));
+              }}
+              className="mb-5 w-full accent-emerald-400"
+            />
 
             {saveError ? (
               <p className="mb-4 rounded-md border border-red-400/50 bg-red-900/30 px-3 py-2 text-sm text-red-200">

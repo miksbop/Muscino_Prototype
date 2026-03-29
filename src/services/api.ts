@@ -150,6 +150,7 @@ export const api = {
       favoriteSongId?: string;
       avatarFile?: File | null;
       profileBackground?: string;
+      profileBackgroundOpacity?: number;
     },
   ): Promise<ProfileView> {
     const formData = new FormData();
@@ -158,6 +159,7 @@ export const api = {
     if (typeof input.favoriteSongId === "string") formData.append("favoriteSongId", input.favoriteSongId);
     if (input.avatarFile) formData.append("avatar", input.avatarFile);
     if (typeof input.profileBackground === "string") formData.append("profileBackground", input.profileBackground);
+    if (typeof input.profileBackgroundOpacity === "number") formData.append("profileBackgroundOpacity", String(input.profileBackgroundOpacity));
 
     const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/update/`, {
       method: "PATCH",
