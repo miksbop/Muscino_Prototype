@@ -5,7 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SafeImage } from "../components/SafeImage";
 import { useAuth } from "../context/useAuth";
-import { api } from "../services/api";
+import { api, type ProfileBackgroundOption } from "../services/api";
 import { rarityRgb } from "../types/rarity";
 import type { ProfileView } from "../types/profile";
 
@@ -40,6 +40,9 @@ export function ProfilePage() {
   const [editFavoriteSongId, setEditFavoriteSongId] = useState("");
   const [editInventorySongs, setEditInventorySongs] = useState<ProfileView["showcaseSongs"]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [backgroundOptions, setBackgroundOptions] = useState<ProfileBackgroundOption[]>([]);
+  const [isLoadingBackgroundOptions, setIsLoadingBackgroundOptions] = useState(false);
+  const [editProfileBackground, setEditProfileBackground] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
   const [friendRequestMessage, setFriendRequestMessage] = useState<string | null>(null);
@@ -87,20 +90,30 @@ export function ProfilePage() {
 
   const profileShellStyle = useMemo(
     () => ({
-      background: `linear-gradient(90deg, rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.62) 0%, rgba(10,10,10,0.84) 45%, rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.62) 100%)`,
-      borderColor: `rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.45)`,
-      boxShadow: `inset 0 0 0 1px rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.2)`,
+      background: `linear-gradient(90deg, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 0%, rgb(14,14,18) 45%, rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b}) 100%)`,
+      borderColor: `rgb(${themeRgb.r},${themeRgb.g},${themeRgb.b})`,
+      boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.25)`,
     }),
     [themeRgb],
   );
 
   const paneStyle = useMemo(
     () => ({
-      background: `rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.14)`,
-      border: `1px solid rgba(${themeRgb.r},${themeRgb.g},${themeRgb.b},0.28)`,
+      background: `rgb(${Math.max(themeRgb.r - 38, 0)},${Math.max(themeRgb.g - 38, 0)},${Math.max(themeRgb.b - 38, 0)})`,
+      border: `1px solid rgb(${Math.max(themeRgb.r - 20, 0)},${Math.max(themeRgb.g - 20, 0)},${Math.max(themeRgb.b - 20, 0)})`,
     }),
     [themeRgb],
   );
+
+  const pageBackgroundStyle = useMemo(() => {
+    if (!profile?.profileBackgroundUrl) return undefined;
+    return {
+      backgroundImage: `url(${profile.profileBackgroundUrl})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    } as CSSProperties;
+  }, [profile?.profileBackgroundUrl]);
 
   const [fitScale, setFitScale] = useState(1);
 
@@ -128,6 +141,7 @@ export function ProfilePage() {
     setEditBio(profile.bio || "");
     setEditThemeColor(profile.themeColor || "#737373");
     setEditFavoriteSongId(profile.favoriteSong?.songId || "");
+    setEditProfileBackground(profile.profileBackground || "");
     setEditInventorySongs(profile.showcaseSongs);
     setEditAvatarFile(null);
     if (editAvatarPreviewUrl) URL.revokeObjectURL(editAvatarPreviewUrl);
@@ -153,6 +167,27 @@ export function ProfilePage() {
       cancelled = true;
     };
   }, [isEditing, isOwner, profile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isEditing || !isOwner) return;
+
+    (async () => {
+      setIsLoadingBackgroundOptions(true);
+      try {
+        const options = await api.getProfileBackgroundOptions();
+        if (!cancelled) setBackgroundOptions(options);
+      } catch {
+        if (!cancelled) setBackgroundOptions([]);
+      } finally {
+        if (!cancelled) setIsLoadingBackgroundOptions(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, isOwner]);
 
   const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -192,6 +227,7 @@ export function ProfilePage() {
         themeColor: editThemeColor,
         favoriteSongId: editFavoriteSongId,
         avatarFile: editAvatarFile,
+        profileBackground: editProfileBackground,
       });
       setProfile(updated);
       await refreshUser();
@@ -274,7 +310,7 @@ export function ProfilePage() {
     "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
 
   return (
-    <div className="flex h-full items-center justify-center overflow-hidden bg-neutral-950 px-8 py-8">
+    <div className="flex h-full items-center justify-center overflow-hidden bg-neutral-950 px-8 py-8" style={pageBackgroundStyle}>
       <div
         style={{
           width: `${BASE_PROFILE_WIDTH * fitScale}px`,
@@ -407,7 +443,7 @@ export function ProfilePage() {
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 p-4">
           <form
             onSubmit={onSubmitEdit}
-            className="w-full max-w-2xl rounded-xl border border-white/20 bg-neutral-900 p-6 text-neutral-100 shadow-2xl"
+            className="profile-subtle-scrollbar w-full max-w-2xl max-h-[calc(100vh-5rem)] overflow-y-auto rounded-xl border border-white/20 bg-neutral-900 p-6 text-neutral-100 shadow-2xl"
           >
             <h2 className="mb-4 text-2xl font-medium">Edit Profile</h2>
 
@@ -469,6 +505,54 @@ export function ProfilePage() {
                 </option>
               ))}
             </select>
+
+            <label className="mb-2 block text-sm font-medium">Change background</label>
+            {isLoadingBackgroundOptions ? (
+              <p className="mb-4 text-sm text-neutral-300">Loading available backgrounds...</p>
+            ) : backgroundOptions.length > 0 ? (
+              <div className="mb-5 grid max-h-56 grid-cols-3 gap-3 overflow-y-auto rounded-md border border-white/15 bg-black/20 p-3">
+                <button
+                  type="button"
+                  onClick={() => setEditProfileBackground("")}
+                  className={`rounded-md border p-2 text-xs transition ${
+                    editProfileBackground === ""
+                      ? "border-emerald-300/80 bg-emerald-500/20 text-emerald-100"
+                      : "border-white/20 bg-black/30 text-neutral-200 hover:bg-white/10"
+                  }`}
+                >
+                  Default
+                </button>
+                {backgroundOptions.map((background) => (
+                  <button
+                    key={background.filename}
+                    type="button"
+                    onClick={() => setEditProfileBackground(background.filename)}
+                    className={`rounded-md border p-1 transition ${
+                      editProfileBackground === background.filename
+                        ? "border-emerald-300/80 bg-emerald-500/20"
+                        : "border-white/20 bg-black/30 hover:bg-white/10"
+                    }`}
+                    title={background.filename}
+                  >
+                    {background.url ? (
+                      <SafeImage
+                        src={background.url}
+                        alt={background.filename}
+                        className="h-16 w-full rounded object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 items-center justify-center rounded bg-black/40 text-xs text-neutral-300">
+                        {background.filename}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mb-4 text-sm text-neutral-400">
+                No background files found in <code>/public/backgrounds</code>.
+              </p>
+            )}
 
             {saveError ? (
               <p className="mb-4 rounded-md border border-red-400/50 bg-red-900/30 px-3 py-2 text-sm text-red-200">

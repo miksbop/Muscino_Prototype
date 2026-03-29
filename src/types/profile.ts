@@ -11,6 +11,8 @@ export type ProfileView = {
   songsCollected: number;
   bio: string;
   themeColor: string;
+  profileBackground: string;
+  profileBackgroundUrl?: string | null;
   favoriteSong: OwnedSong | null;
   favoriteSongInventoryCount: number;
   showcaseSongs: OwnedSong[];

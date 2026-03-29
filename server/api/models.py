@@ -63,6 +63,8 @@ class Profile(models.Model):
         blank=True,
         related_name='favorite_by_profiles',
     )
+    profile_background = models.CharField(max_length=255, blank=True, default='')
+    profile_background_opacity = models.FloatField(default=1.0)
     friends = models.ManyToManyField('self', symmetrical=True, blank=True)
 
     def __str__(self):

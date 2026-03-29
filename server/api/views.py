@@ -1,7 +1,9 @@
 import random
 import re
 import base64
+from pathlib import Path
 from django.db import transaction
+from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import date
@@ -31,6 +33,53 @@ ALLOWED_AVATAR_MIME_TYPES = {
     'image/gif',
 }
 HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
+
+def _profile_background_dirs() -> list[Path]:
+    repo_root = Path(__file__).resolve().parents[2]
+    configured_dir = getattr(settings, 'PROFILE_BACKGROUNDS_DIR', None)
+
+    candidates = [
+        configured_dir,
+        repo_root / 'public' / 'backgrounds',
+        repo_root.parent / 'muscino-frontend' / 'public' / 'backgrounds',
+        Path.home() / 'OneDrive' / 'Documents' / 'backups' / 'MuscinoGit' / 'muscino-frontend' / 'public' / 'backgrounds',
+    ]
+
+    seen: set[Path] = set()
+    resolved_dirs: list[Path] = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+
+        candidate_path = Path(candidate).expanduser()
+        if candidate_path in seen:
+            continue
+
+        seen.add(candidate_path)
+        if candidate_path.exists() and candidate_path.is_dir():
+            resolved_dirs.append(candidate_path)
+
+    return resolved_dirs
+
+
+def _available_profile_backgrounds() -> list[str]:
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'}
+    filenames: set[str] = set()
+
+    for backgrounds_dir in _profile_background_dirs():
+        for path in backgrounds_dir.iterdir():
+            if path.is_file() and path.suffix.lower() in allowed_extensions:
+                filenames.add(path.name)
+
+    return sorted(filenames, key=str.lower)
+
+
+def _profile_background_url(filename: str) -> str | None:
+    cleaned = (filename or '').strip()
+    if not cleaned:
+        return None
+    return f"/backgrounds/{cleaned}"
 
 RARITY_WEIGHT = {
     'Common': 35,
@@ -126,6 +175,8 @@ def _serialize_profile_response(user: User):
     bio = getattr(profile, 'bio', '') or ''
     theme_color = getattr(profile, 'theme_color', '#737373') or '#737373'
 
+    profile_background = getattr(profile, 'profile_background', '') or ''
+
     favorite_song = None
     favorite_song_inventory_count = 0
     favorite_song_id = getattr(profile, 'favorite_song_id', None)
@@ -152,6 +203,8 @@ def _serialize_profile_response(user: User):
         'songsCollected': songs_collected,
         'bio': bio,
         'themeColor': theme_color,
+        'profileBackground': profile_background,
+        'profileBackgroundUrl': _profile_background_url(profile_background),
         'favoriteSong': favorite_song,
         'favoriteSongInventoryCount': favorite_song_inventory_count,
         'showcaseSongs': showcase_data,
@@ -306,6 +359,20 @@ def profile_detail(request, username):
     return Response(_serialize_profile_response(user))
 
 
+@api_view(['GET'])
+def profile_backgrounds(request):
+    backgrounds = _available_profile_backgrounds()
+    return Response({
+        'backgrounds': [
+            {
+                'filename': filename,
+                'url': _profile_background_url(filename),
+            }
+            for filename in backgrounds
+        ]
+    })
+
+
 @api_view(['PATCH'])
 def profile_update(request, username):
     if not request.user.is_authenticated:
@@ -320,6 +387,7 @@ def profile_update(request, username):
     theme_color = request.data.get('themeColor')
     favorite_song_id = request.data.get('favoriteSongId')
     avatar_file = request.FILES.get('avatar')
+    profile_background = request.data.get('profileBackground')
 
     updated_fields: list[str] = []
 
@@ -368,6 +436,18 @@ def profile_update(request, username):
             updated_fields.extend(['avatar_image', 'avatar_mime_type', 'avatar_url'])
         else:
             return Response({'detail': 'binary avatar uploads are not enabled on this server'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if profile_background is not None and hasattr(profile, 'profile_background'):
+        profile_background = str(profile_background).strip()
+        if profile_background == '':
+            profile.profile_background = ''
+            updated_fields.append('profile_background')
+        else:
+            available_backgrounds = set(_available_profile_backgrounds())
+            if profile_background not in available_backgrounds:
+                return Response({'detail': 'profileBackground must match an available background filename'}, status=status.HTTP_400_BAD_REQUEST)
+            profile.profile_background = profile_background
+            updated_fields.append('profile_background')
 
     if updated_fields:
         profile.save(update_fields=sorted(set(updated_fields)))

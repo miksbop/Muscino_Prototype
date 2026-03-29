@@ -2,6 +2,11 @@ import type { AuthUser, LoginInput } from "../types/auth";
 import { MOCK_SLEEVES } from "../mock/sleeves";
 import type { OwnedSong, Rarity } from "../types/song";
 
+export type ProfileBackgroundOption = {
+  filename: string;
+  url: string | null;
+};
+
 export type RerollInventoryResponse = {
   newSong: OwnedSong;
   consumedOwnedSongIds: number[];
@@ -132,6 +137,11 @@ export const api = {
     return await fetchJson<ProfileView>(`/api/profiles/${encodeURIComponent(username)}/`);
   },
 
+  async getProfileBackgroundOptions(): Promise<ProfileBackgroundOption[]> {
+    const data = await fetchJson<{ backgrounds: ProfileBackgroundOption[] }>("/api/profiles/backgrounds/");
+    return data.backgrounds;
+  },
+
   async updateProfile(
     username: string,
     input: {
@@ -139,6 +149,7 @@ export const api = {
       themeColor?: string;
       favoriteSongId?: string;
       avatarFile?: File | null;
+      profileBackground?: string;
     },
   ): Promise<ProfileView> {
     const formData = new FormData();
@@ -146,6 +157,7 @@ export const api = {
     if (typeof input.themeColor === "string") formData.append("themeColor", input.themeColor);
     if (typeof input.favoriteSongId === "string") formData.append("favoriteSongId", input.favoriteSongId);
     if (input.avatarFile) formData.append("avatar", input.avatarFile);
+    if (typeof input.profileBackground === "string") formData.append("profileBackground", input.profileBackground);
 
     const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/update/`, {
       method: "PATCH",

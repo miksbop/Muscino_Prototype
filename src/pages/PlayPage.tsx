@@ -30,6 +30,7 @@ const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
 const REEL_DURATION_MS = 5600;
 const DROP_DURATION_MS = 650;
 const BURST_DURATION_MS = 320;
+const SONG_ACQUIRED_HOLD_MS = 1400;
 const CARD_INTRO_STAGGER_MS = 88;
 const CARD_INTRO_BASE_MS = 340;
 const CARD_INTRO_START_DELAY_MS = 220;
@@ -92,6 +93,7 @@ export function PlayPage() {
   const [leftPanelSheenTick, setLeftPanelSheenTick] = useState(0);
   const hasInitializedGenreRef = useRef(false);
   const [artistTickerIndex, setArtistTickerIndex] = useState(0);
+  const [showSongAcquiredText, setShowSongAcquiredText] = useState(false);
 
   const stopReelSyncLoop = useCallback(() => {
     if (reelSyncRafRef.current !== null) {
@@ -327,6 +329,7 @@ export function PlayPage() {
     setOpenState("idle");
     setRolled(null);
     setOpenError(null);
+    setShowSongAcquiredText(false);
 
     setReelTiles([]);
     setFinalIndex(0);
@@ -345,6 +348,7 @@ export function PlayPage() {
     setOpenState("dropping");
     setRolled(null);
     setOpenError(null);
+    setShowSongAcquiredText(false);
     setReelFocusIndex(0);
     setReelTiles([]);
     setFinalIndex(0);
@@ -383,7 +387,13 @@ export function PlayPage() {
       window.setTimeout(() => {
         setReelFocusIndex(built.finalIndex);
         setRolled(owned);
+        setShowSongAcquiredText(true);
         setOpenState("revealed");
+
+        const acquiredTimerId = window.setTimeout(() => {
+          setShowSongAcquiredText(false);
+        }, SONG_ACQUIRED_HOLD_MS);
+        timersRef.current.push(acquiredTimerId);
       }, REEL_DURATION_MS),
     );
   }
@@ -491,8 +501,9 @@ export function PlayPage() {
                           className={["muscino-opening-current", openState === "revealed" ? "is-revealed" : ""].join(" ")}
                           style={{ ["--rarity-rgb" as const]: rarityRgb(activeSong?.rarity ?? "Common") } as CSSProperties}
                         >
-                          {activeSong?.title ?? "Rolling..."}
-                          {(activeSong?.artist && ` – ${activeSong.artist}`) || ""}
+                          {openState === "revealed" && showSongAcquiredText
+                            ? "Song Acquired!"
+                            : `${activeSong?.title ?? "Rolling..."}${activeSong?.artist ? ` – ${activeSong.artist}` : ""}`}
                         </div>
                       </>
                     )}
