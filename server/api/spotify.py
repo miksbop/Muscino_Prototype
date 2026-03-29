@@ -1,4 +1,5 @@
 import base64
+import math
 import json
 import os
 import time
@@ -13,9 +14,12 @@ SPOTIFY_TRACKS_URL = "https://api.spotify.com/v1/tracks"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 TOKEN_CACHE_KEY = "spotify:client-token"
 THROTTLE_UNTIL_CACHE_KEY = "spotify:throttle-until"
+THROTTLE_LAST_PROBE_CACHE_KEY = "spotify:throttle-last-probe"
 DEFAULT_TRACK_CACHE_TTL = int(os.environ.get("SPOTIFY_TRACK_CACHE_TTL_SECONDS", "3600"))
 SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS = float(os.environ.get("SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS", "0.25"))
 SPOTIFY_MAX_RETRIES = int(os.environ.get("SPOTIFY_MAX_RETRIES", "2"))
+SPOTIFY_MAX_BACKOFF_SECONDS = int(os.environ.get("SPOTIFY_MAX_BACKOFF_SECONDS", "120"))
+SPOTIFY_BACKOFF_PROBE_INTERVAL_SECONDS = int(os.environ.get("SPOTIFY_BACKOFF_PROBE_INTERVAL_SECONDS", "15"))
 
 
 @dataclass
@@ -57,31 +61,65 @@ class SpotifyClient:
             time.sleep(SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS - elapsed)
         self._last_request_ts = time.monotonic()
 
-    def _wait_for_global_backoff(self) -> None:
+    def _global_backoff_remaining_seconds(self) -> int:
         throttle_until = cache.get(THROTTLE_UNTIL_CACHE_KEY)
         if throttle_until is None:
-            return
+            return 0
         try:
             throttle_until = float(throttle_until)
         except (TypeError, ValueError):
-            return
+            return 0
 
         delay = throttle_until - time.time()
-        if delay > 0:
-            time.sleep(delay)
+        if delay <= 0:
+            return 0
+
+        return max(1, int(math.ceil(delay)))
 
     def _set_global_backoff(self, retry_after_seconds: int | None) -> None:
         seconds = retry_after_seconds if (retry_after_seconds is not None and retry_after_seconds > 0) else 1
+        seconds = min(seconds, max(1, SPOTIFY_MAX_BACKOFF_SECONDS))
         throttle_until = time.time() + seconds
         cache.set(THROTTLE_UNTIL_CACHE_KEY, throttle_until, timeout=max(1, seconds))
+
+    def _clear_global_backoff(self) -> None:
+        cache.delete(THROTTLE_UNTIL_CACHE_KEY)
+        cache.delete(THROTTLE_LAST_PROBE_CACHE_KEY)
+
+    def _can_probe_during_backoff(self) -> bool:
+        now = time.time()
+        interval = max(1, SPOTIFY_BACKOFF_PROBE_INTERVAL_SECONDS)
+        last_probe_at = cache.get(THROTTLE_LAST_PROBE_CACHE_KEY)
+        try:
+            last_probe_at = float(last_probe_at) if last_probe_at is not None else None
+        except (TypeError, ValueError):
+            last_probe_at = None
+
+        if last_probe_at is not None and (now - last_probe_at) < interval:
+            return False
+
+        cache.set(THROTTLE_LAST_PROBE_CACHE_KEY, now, timeout=interval)
+        return True
 
     def _request_json(self, req: request.Request, timeout: int, *, allow_retry: bool = True) -> dict[str, Any] | None:
         attempts = max(1, SPOTIFY_MAX_RETRIES + 1) if allow_retry else 1
         for attempt in range(attempts):
-            self._wait_for_global_backoff()
+            backoff_seconds = self._global_backoff_remaining_seconds()
+            if backoff_seconds > 0:
+                if self._can_probe_during_backoff():
+                    backoff_seconds = 0
+                else:
+                    self.last_error_code = 429
+                    self.last_retry_after_seconds = backoff_seconds
+                    return None
+            if backoff_seconds > 0:
+                self.last_error_code = 429
+                self.last_retry_after_seconds = backoff_seconds
+                return None
             self._pace_requests()
             try:
                 with request.urlopen(req, timeout=timeout) as resp:
+                    self._clear_global_backoff()
                     return json.loads(resp.read().decode("utf-8"))
             except error.HTTPError as exc:
                 self._capture_http_error(exc)

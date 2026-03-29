@@ -37,6 +37,8 @@ export function ProfilePage() {
   const [editThemeColor, setEditThemeColor] = useState("#737373");
   const [editAvatarFile, setEditAvatarFile] = useState<File | null>(null);
   const [editAvatarPreviewUrl, setEditAvatarPreviewUrl] = useState<string | null>(null);
+  const [editFavoriteSongId, setEditFavoriteSongId] = useState("");
+  const [editInventorySongs, setEditInventorySongs] = useState<ProfileView["showcaseSongs"]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -123,12 +125,32 @@ export function ProfilePage() {
     if (!profile) return;
     setEditBio(profile.bio || "");
     setEditThemeColor(profile.themeColor || "#737373");
+    setEditFavoriteSongId(profile.favoriteSong?.songId || "");
+    setEditInventorySongs(profile.showcaseSongs);
     setEditAvatarFile(null);
     if (editAvatarPreviewUrl) URL.revokeObjectURL(editAvatarPreviewUrl);
     setEditAvatarPreviewUrl(null);
     setSaveError(null);
     setIsEditing(true);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isEditing || !profile || !isOwner) return;
+
+    (async () => {
+      try {
+        const songs = await api.getInventoryByOwner(profile.username);
+        if (!cancelled) setEditInventorySongs(songs);
+      } catch {
+        if (!cancelled) setEditInventorySongs(profile.showcaseSongs);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditing, isOwner, profile]);
 
   const onAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -166,6 +188,7 @@ export function ProfilePage() {
       const updated = await api.updateProfile(profile.username, {
         bio: editBio,
         themeColor: editThemeColor,
+        favoriteSongId: editFavoriteSongId,
         avatarFile: editAvatarFile,
       });
       setProfile(updated);
@@ -177,6 +200,36 @@ export function ProfilePage() {
       setIsSaving(false);
     }
   };
+
+  const favoriteSongOptions = useMemo(() => {
+    if (!profile) return [];
+
+    const bySongId = new Map<string, { songId: string; label: string; count: number }>();
+    for (const song of editInventorySongs) {
+      const existing = bySongId.get(song.songId);
+      if (existing) {
+        existing.count += 1;
+        continue;
+      }
+
+      bySongId.set(song.songId, {
+        songId: song.songId,
+        label: `${song.title} — ${song.artist}`,
+        count: 1,
+      });
+    }
+
+    const favoriteSong = profile.favoriteSong;
+    if (favoriteSong && !bySongId.has(favoriteSong.songId)) {
+      bySongId.set(favoriteSong.songId, {
+        songId: favoriteSong.songId,
+        label: `${favoriteSong.title} — ${favoriteSong.artist}`,
+        count: profile.favoriteSongInventoryCount,
+      });
+    }
+
+    return Array.from(bySongId.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [editInventorySongs, profile]);
 
   if (isLoading) {
     return (
@@ -236,7 +289,14 @@ export function ProfilePage() {
                 >
                   Edit Profile
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="rounded-md border border-sky-300/30 bg-sky-500/10 px-4 py-2 text-sm text-sky-100 hover:bg-sky-500/20"
+                >
+                  Add Friend
+                </button>
+              )}
             </div>
 
             <div className="grid h-[calc(100%-4.5rem)] gap-6 lg:grid-cols-[1.05fr_0.9fr_2fr]">
@@ -277,7 +337,7 @@ export function ProfilePage() {
                       {profile.favoriteSong.title} -{" "}
                       {profile.favoriteSong.artist}
                     </p>
-                    <p>Times Streamed: 500</p>
+                    <p>In Inventory: {profile.favoriteSongInventoryCount}</p>
                     <p>
                       Found in Inventory? {profile.favoriteSong ? "✔" : "✖"}
                     </p>
@@ -366,6 +426,23 @@ export function ProfilePage() {
               />
               <span className="text-sm text-neutral-300">{editThemeColor}</span>
             </div>
+
+            <label className="mb-2 block text-sm font-medium" htmlFor="profile-favorite-song-input">
+              Favorite song
+            </label>
+            <select
+              id="profile-favorite-song-input"
+              value={editFavoriteSongId}
+              onChange={(e) => setEditFavoriteSongId(e.target.value)}
+              className="mb-5 w-full rounded-md border border-white/20 bg-black/30 p-3 text-sm outline-none focus:border-white/40"
+            >
+              <option value="">No favorite song</option>
+              {favoriteSongOptions.map((song) => (
+                <option key={song.songId} value={song.songId}>
+                  {song.label} (Owned: {song.count})
+                </option>
+              ))}
+            </select>
 
             {saveError ? (
               <p className="mb-4 rounded-md border border-red-400/50 bg-red-900/30 px-3 py-2 text-sm text-red-200">

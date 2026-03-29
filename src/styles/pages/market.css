@@ -6,9 +6,9 @@
 
 .market-side-label {
   position: absolute;
-  left: 0;
+  left: -5.5rem;
   top: 7.25rem;
-  transform: translateX(-0.5rem);
+  transform: translateX(-.50rem);
   z-index: 3;
   writing-mode: vertical-rl;
   letter-spacing: 1.5em;

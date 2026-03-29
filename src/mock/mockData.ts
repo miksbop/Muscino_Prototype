@@ -3,6 +3,7 @@ import type { OwnedSong } from "../types/song";
 export const mockInventory: OwnedSong[] = [
   {
     id: "s1",
+    songId: "s1",
     title: "Do Ya",
     artist: "ericdoa",
     coverUrl:
@@ -13,6 +14,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s2",
+    songId: "s2",
     title: "L.A. Girls",
     artist: "Weezer",
     coverUrl:
@@ -23,6 +25,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s3",
+    songId: "s3",
     title: "Feel Good Inc",
     artist: "Gorillaz",
     coverUrl:
@@ -33,6 +36,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
   id: "s10",
+  songId: "s10",
   title: "Gabriella",
   artist: "Katseye",
   coverUrl:
@@ -43,6 +47,7 @@ export const mockInventory: OwnedSong[] = [
 },
   {
     id: "s4",
+    songId: "s4",
     title: "Buddy Holly",
     artist: "Weezer",
     coverUrl:
@@ -54,6 +59,7 @@ export const mockInventory: OwnedSong[] = [
   
   {
     id: "s5",
+    songId: "s5",
     title: "Island In The Sun",
     artist: "Weezer",
     coverUrl:
@@ -64,6 +70,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s6",
+    songId: "s6",
     title: "Girl If You're Wondering If I Want You Too (I Want You Too)",
     artist: "Weezer",
     coverUrl:
@@ -74,6 +81,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s7",
+    songId: "s7",
     title: "I'll See You In 40",
     artist: "Joji",
     coverUrl:
@@ -84,6 +92,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s8",
+    songId: "s8",
     title: "QB Blitz",
     artist: "Weezer",
     coverUrl:
@@ -94,6 +103,7 @@ export const mockInventory: OwnedSong[] = [
   },
   {
     id: "s9",
+    songId: "s9",
     title: "The Good Life",
     artist: "Weezer",
     coverUrl: "https://www.weezerpedia.com/w/images/f/ff/Weezer_Pinkerton.jpg",

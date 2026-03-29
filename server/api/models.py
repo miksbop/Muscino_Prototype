@@ -56,6 +56,13 @@ class Profile(models.Model):
     avatar_mime_type = models.CharField(max_length=100, blank=True, null=True)
     bio = models.TextField(blank=True, default='')
     theme_color = models.CharField(max_length=7, blank=True, default='#737373')
+    favorite_song = models.ForeignKey(
+        Song,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='favorite_by_profiles',
+    )
 
     def __str__(self):
         return f"Profile for {self.user.username}"

@@ -12,5 +12,6 @@ export type ProfileView = {
   bio: string;
   themeColor: string;
   favoriteSong: OwnedSong | null;
+  favoriteSongInventoryCount: number;
   showcaseSongs: OwnedSong[];
 };

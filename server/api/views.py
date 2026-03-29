@@ -110,7 +110,6 @@ def _serialize_profile_response(user: User):
     showcase_items = list(owned_qs[:20])
     showcase_data = OwnedSongSerializer(showcase_items, many=True).data
     hydrate_songs_from_spotify(showcase_data)
-    favorite_song = showcase_data[0] if showcase_data else None
 
     profile, _ = Profile.objects.get_or_create(user=user, defaults={'display_name': user.username})
     display_name = profile.display_name or user.username
@@ -118,6 +117,18 @@ def _serialize_profile_response(user: User):
     avatar_url = _profile_avatar_url(profile)
     bio = getattr(profile, 'bio', '') or ''
     theme_color = getattr(profile, 'theme_color', '#737373') or '#737373'
+
+    favorite_song = None
+    favorite_song_inventory_count = 0
+    favorite_song_id = getattr(profile, 'favorite_song_id', None)
+    if favorite_song_id:
+        favorite_owned_qs = owned_qs.filter(song_id=favorite_song_id)
+        favorite_song_inventory_count = favorite_owned_qs.count()
+        favorite_owned_song = favorite_owned_qs.first()
+        if favorite_owned_song:
+            favorite_payload = OwnedSongSerializer(favorite_owned_song).data
+            hydrate_songs_from_spotify([favorite_payload])
+            favorite_song = favorite_payload
 
     joined_date = user.date_joined.date()
     days_registered = max((date.today() - joined_date).days, 0)
@@ -134,6 +145,7 @@ def _serialize_profile_response(user: User):
         'bio': bio,
         'themeColor': theme_color,
         'favoriteSong': favorite_song,
+        'favoriteSongInventoryCount': favorite_song_inventory_count,
         'showcaseSongs': showcase_data,
     }
 
@@ -298,6 +310,7 @@ def profile_update(request, username):
 
     bio = request.data.get('bio')
     theme_color = request.data.get('themeColor')
+    favorite_song_id = request.data.get('favoriteSongId')
     avatar_file = request.FILES.get('avatar')
 
     updated_fields: list[str] = []
@@ -315,6 +328,23 @@ def profile_update(request, username):
             return Response({'detail': 'themeColor must be a hex color like #12AB34'}, status=status.HTTP_400_BAD_REQUEST)
         profile.theme_color = theme_color.lower()
         updated_fields.append('theme_color')
+
+    if favorite_song_id is not None and hasattr(profile, 'favorite_song'):
+        favorite_song_id = str(favorite_song_id).strip()
+        if favorite_song_id == '':
+            profile.favorite_song = None
+            updated_fields.append('favorite_song')
+        else:
+            owned_song_exists = OwnedSong.objects.filter(owner=request.user, song_id=favorite_song_id).exists()
+            if not owned_song_exists:
+                return Response({'detail': 'favoriteSongId must be a song in your inventory'}, status=status.HTTP_400_BAD_REQUEST)
+
+            favorite_song = Song.objects.filter(id=favorite_song_id).first()
+            if not favorite_song:
+                return Response({'detail': 'favoriteSongId is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+
+            profile.favorite_song = favorite_song
+            updated_fields.append('favorite_song')
 
     if avatar_file is not None:
         if avatar_file.size > MAX_PROFILE_AVATAR_BYTES:
@@ -368,48 +398,47 @@ def auth_login(request):
     if user is None:
         return Response({'detail': 'invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    with transaction.atomic():
-        profile = Profile.objects.select_for_update().get(user=user)
-        today = timezone.localdate()
-        daily_bonus_awarded = 0
-        if profile.last_daily_bonus_claimed_at != today:
-            profile.wallet += DAILY_LOGIN_BONUS
-            profile.last_daily_bonus_claimed_at = today
-            profile.save(update_fields=['wallet', 'last_daily_bonus_claimed_at'])
-            daily_bonus_awarded = DAILY_LOGIN_BONUS
-
     login(request, user)
     serializer = UserSerializer(user)
-    return Response({
-        'user': serializer.data,
-        'walletIncrease': daily_bonus_awarded,
-    })
+
+    wallet_increase = 0
+    today = timezone.localdate()
+    profile = getattr(user, 'profile', None)
+    if profile is not None:
+        if profile.last_daily_bonus_claimed_at != today:
+            profile.wallet = (profile.wallet or 0) + DAILY_LOGIN_BONUS
+            profile.last_daily_bonus_claimed_at = today
+            profile.save(update_fields=['wallet', 'last_daily_bonus_claimed_at'])
+            wallet_increase = DAILY_LOGIN_BONUS
+
+    return Response({'user': serializer.data, 'walletIncrease': wallet_increase})
 
 
 @api_view(['GET'])
 def auth_session(request):
-    if request.user.is_authenticated:
-        serializer = UserSerializer(request.user)
-        return Response({'user': serializer.data})
-    return Response({'user': None})
+    if not request.user.is_authenticated:
+        return Response({'user': None})
+    serializer = UserSerializer(request.user)
+    return Response({'user': serializer.data})
 
 
 @api_view(['POST'])
 def auth_logout(request):
     logout(request)
-    return Response({'ok': True}, status=status.HTTP_200_OK)
+    return Response({'ok': True})
 
 
 @api_view(['GET'])
 def market_listings(request):
     listings = (
         MarketListing.objects
+        .select_related('owned_song__song', 'seller__profile', 'buyer')
         .filter(status='active')
-        .select_related('seller', 'buyer', 'owned_song__song')
         .order_by('-created_at')
     )
     serializer = MarketListingSerializer(listings, many=True)
-    data = hydrate_songs_from_spotify(list(serializer.data))
+    data = list(serializer.data)
+    hydrate_songs_from_spotify(data)
     return Response(data)
 
 
@@ -418,42 +447,29 @@ def market_create_listing(request):
     if not request.user.is_authenticated:
         return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    try:
-        owned_song_id = int(request.data.get('ownedSongId'))
-    except (TypeError, ValueError):
-        return Response({'detail': 'valid ownedSongId required'}, status=status.HTTP_400_BAD_REQUEST)
+    owned_song_id = request.data.get('ownedSongId')
+    price = request.data.get('price')
 
     try:
-        price = int(request.data.get('price'))
+        owned_song_id = int(owned_song_id)
+        price = int(price)
     except (TypeError, ValueError):
-        return Response({'detail': 'valid price required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'ownedSongId and price must be integers'}, status=status.HTTP_400_BAD_REQUEST)
 
     if price <= 0:
-        return Response({'detail': 'price must be greater than zero'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'detail': 'price must be greater than 0'}, status=status.HTTP_400_BAD_REQUEST)
 
-    owned = get_object_or_404(OwnedSong.objects.select_related('owner'), pk=owned_song_id)
-    if owned.owner_id != request.user.id:
-        return Response({'detail': 'you do not own this song'}, status=status.HTTP_403_FORBIDDEN)
+    owned_song = get_object_or_404(OwnedSong.objects.select_related('song'), id=owned_song_id, owner=request.user)
 
-    listing = MarketListing.objects.filter(owned_song=owned).first()
-    if listing and listing.status == 'active':
+    if MarketListing.objects.filter(owned_song=owned_song, status='active').exists():
         return Response({'detail': 'song is already listed'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if listing:
-        listing.seller = request.user
-        listing.buyer = None
-        listing.price = price
-        listing.status = 'active'
-        listing.sold_at = None
-        listing.created_at = timezone.now()
-        listing.save(update_fields=['seller', 'buyer', 'price', 'status', 'sold_at', 'created_at'])
-    else:
-        listing = MarketListing.objects.create(
-            owned_song=owned,
-            seller=request.user,
-            price=price,
-            status='active',
-        )
+    listing = MarketListing.objects.create(
+        owned_song=owned_song,
+        seller=request.user,
+        price=price,
+        status='active',
+    )
     serializer = MarketListingSerializer(listing)
     data = serializer.data
     hydrate_songs_from_spotify([data])
@@ -466,23 +482,21 @@ def market_buy_listing(request, listing_id):
         return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
     with transaction.atomic():
-        listing = get_object_or_404(
-            MarketListing.objects.select_for_update().select_related('seller', 'owned_song'),
-            pk=listing_id,
+        listing = (
+            MarketListing.objects
+            .select_for_update()
+            .select_related('owned_song', 'seller__profile')
+            .filter(id=listing_id)
+            .first()
         )
-
-        if listing.status != 'active':
-            return Response({'detail': 'listing is no longer active'}, status=status.HTTP_400_BAD_REQUEST)
+        if listing is None or listing.status != 'active':
+            return Response({'detail': 'listing is not available'}, status=status.HTTP_404_NOT_FOUND)
 
         if listing.seller_id == request.user.id:
             return Response({'detail': 'cannot buy your own listing'}, status=status.HTTP_400_BAD_REQUEST)
 
-        buyer_profile = Profile.objects.select_for_update().get(user=request.user)
-        seller_profile = Profile.objects.select_for_update().get(user=listing.seller)
-        owned_song = OwnedSong.objects.select_for_update().get(pk=listing.owned_song_id)
-
-        if owned_song.owner_id != listing.seller_id:
-            return Response({'detail': 'listing owner mismatch'}, status=status.HTTP_409_CONFLICT)
+        buyer_profile = request.user.profile
+        seller_profile = listing.seller.profile
 
         if buyer_profile.wallet < listing.price:
             return Response({'detail': 'not enough money in wallet'}, status=status.HTTP_400_BAD_REQUEST)
@@ -492,6 +506,7 @@ def market_buy_listing(request, listing_id):
         buyer_profile.save(update_fields=['wallet'])
         seller_profile.save(update_fields=['wallet'])
 
+        owned_song = listing.owned_song
         owned_song.owner = request.user
         owned_song.save(update_fields=['owner'])
 

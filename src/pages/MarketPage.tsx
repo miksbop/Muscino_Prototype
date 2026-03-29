@@ -146,7 +146,7 @@ export function MarketPage() {
           height: `${BASE_MARKET_HEIGHT * fitScale}px`,
         }}
       >
-        <div className="market-side-label tracking-wide"></div>
+        <div className="market-side-label tracking-wide">Market///</div>
         <div
           className="origin-top-left"
           style={{

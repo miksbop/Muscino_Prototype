@@ -133,11 +133,17 @@ export const api = {
 
   async updateProfile(
     username: string,
-    input: { bio?: string; themeColor?: string; avatarFile?: File | null },
+    input: {
+      bio?: string;
+      themeColor?: string;
+      favoriteSongId?: string;
+      avatarFile?: File | null;
+    },
   ): Promise<ProfileView> {
     const formData = new FormData();
     if (typeof input.bio === "string") formData.append("bio", input.bio);
     if (typeof input.themeColor === "string") formData.append("themeColor", input.themeColor);
+    if (typeof input.favoriteSongId === "string") formData.append("favoriteSongId", input.favoriteSongId);
     if (input.avatarFile) formData.append("avatar", input.avatarFile);
 
     const res = await fetch(`/api/profiles/${encodeURIComponent(username)}/update/`, {
