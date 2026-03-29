@@ -1,4 +1,6 @@
 import random
+import re
+import base64
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -13,6 +15,14 @@ from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, 
 from .spotify import SpotifyClient, hydrate_songs_from_spotify
 
 DAILY_LOGIN_BONUS = 100
+MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024
+ALLOWED_AVATAR_MIME_TYPES = {
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+    'image/gif',
+}
+HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
 
 RARITY_WEIGHT = {
     'Common': 35,
@@ -78,6 +88,54 @@ def _upsert_song_from_spotify_track(track) -> Song:
             song.save(update_fields=changed_fields)
 
     return song
+
+
+def _profile_avatar_url(profile: Profile):
+    avatar_image = getattr(profile, 'avatar_image', None)
+    avatar_mime_type = getattr(profile, 'avatar_mime_type', None)
+    if avatar_image and avatar_mime_type:
+        try:
+            raw = bytes(avatar_image)
+            encoded = base64.b64encode(raw).decode('ascii')
+            return f"data:{avatar_mime_type};base64,{encoded}"
+        except Exception:
+            return profile.avatar_url
+    return profile.avatar_url
+
+
+def _serialize_profile_response(user: User):
+    owned_qs = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
+    songs_collected = owned_qs.count()
+
+    showcase_items = list(owned_qs[:20])
+    showcase_data = OwnedSongSerializer(showcase_items, many=True).data
+    hydrate_songs_from_spotify(showcase_data)
+    favorite_song = showcase_data[0] if showcase_data else None
+
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={'display_name': user.username})
+    display_name = profile.display_name or user.username
+    wallet = profile.wallet
+    avatar_url = _profile_avatar_url(profile)
+    bio = getattr(profile, 'bio', '') or ''
+    theme_color = getattr(profile, 'theme_color', '#737373') or '#737373'
+
+    joined_date = user.date_joined.date()
+    days_registered = max((date.today() - joined_date).days, 0)
+
+    return {
+        'id': str(user.id),
+        'username': user.username,
+        'displayName': display_name,
+        'wallet': wallet,
+        'avatarUrl': avatar_url,
+        'joinedAt': user.date_joined.isoformat(),
+        'daysRegistered': days_registered,
+        'songsCollected': songs_collected,
+        'bio': bio,
+        'themeColor': theme_color,
+        'favoriteSong': favorite_song,
+        'showcaseSongs': showcase_data,
+    }
 
 
 @api_view(['GET'])
@@ -194,6 +252,13 @@ def reroll_inventory_song(request):
 
     candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
     if not candidates:
+        if spotify_client.last_error_code == 429:
+            payload = {'detail': 'spotify rate limited'}
+            if spotify_client.last_retry_after_seconds is not None:
+                payload['retryAfterSeconds'] = spotify_client.last_retry_after_seconds
+            return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        if spotify_client.last_error_code == 403:
+            return Response({'detail': 'spotify access forbidden for search'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({'detail': 'no Spotify tracks found for this artist keyword'}, status=status.HTTP_404_NOT_FOUND)
 
     chosen_track = random.choice(candidates)
@@ -218,42 +283,58 @@ def reroll_inventory_song(request):
 @api_view(['GET'])
 def profile_detail(request, username):
     user = get_object_or_404(User.objects.select_related('profile'), username=username)
+    return Response(_serialize_profile_response(user))
 
-    owned_qs = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
-    songs_collected = owned_qs.count()
 
-    showcase_items = list(owned_qs[:20])
-    showcase_data = OwnedSongSerializer(showcase_items, many=True).data
-    hydrate_songs_from_spotify(showcase_data)
+@api_view(['PATCH'])
+def profile_update(request, username):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    favorite_song = showcase_data[0] if showcase_data else None
+    if request.user.username != username:
+        return Response({'detail': 'cannot edit another user profile'}, status=status.HTTP_403_FORBIDDEN)
 
-    try:
-        profile = user.profile
-        display_name = profile.display_name or user.username
-        wallet = profile.wallet
-        avatar_url = profile.avatar_url
-    except Profile.DoesNotExist:
-        display_name = user.username
-        wallet = 0
-        avatar_url = None
+    profile, _ = Profile.objects.get_or_create(user=request.user, defaults={'display_name': request.user.username})
 
-    joined_date = user.date_joined.date()
-    days_registered = max((date.today() - joined_date).days, 0)
+    bio = request.data.get('bio')
+    theme_color = request.data.get('themeColor')
+    avatar_file = request.FILES.get('avatar')
 
-    return Response({
-        'id': str(user.id),
-        'username': user.username,
-        'displayName': display_name,
-        'wallet': wallet,
-        'avatarUrl': avatar_url,
-        'joinedAt': user.date_joined.isoformat(),
-        'daysRegistered': days_registered,
-        'songsCollected': songs_collected,
-        'bio': '',
-        'favoriteSong': favorite_song,
-        'showcaseSongs': showcase_data,
-    })
+    updated_fields: list[str] = []
+
+    if bio is not None and hasattr(profile, 'bio'):
+        bio = str(bio).strip()
+        if len(bio) > 600:
+            return Response({'detail': 'bio must be 600 characters or fewer'}, status=status.HTTP_400_BAD_REQUEST)
+        profile.bio = bio
+        updated_fields.append('bio')
+
+    if theme_color is not None and hasattr(profile, 'theme_color'):
+        theme_color = str(theme_color).strip()
+        if not HEX_COLOR_RE.fullmatch(theme_color):
+            return Response({'detail': 'themeColor must be a hex color like #12AB34'}, status=status.HTTP_400_BAD_REQUEST)
+        profile.theme_color = theme_color.lower()
+        updated_fields.append('theme_color')
+
+    if avatar_file is not None:
+        if avatar_file.size > MAX_PROFILE_AVATAR_BYTES:
+            return Response({'detail': 'avatar must be 5MB or less'}, status=status.HTTP_400_BAD_REQUEST)
+        content_type = getattr(avatar_file, 'content_type', None) or ''
+        if content_type not in ALLOWED_AVATAR_MIME_TYPES:
+            return Response({'detail': 'avatar must be PNG, JPEG, WEBP, or GIF'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if hasattr(profile, 'avatar_image') and hasattr(profile, 'avatar_mime_type'):
+            profile.avatar_image = avatar_file.read()
+            profile.avatar_mime_type = content_type
+            profile.avatar_url = None
+            updated_fields.extend(['avatar_image', 'avatar_mime_type', 'avatar_url'])
+        else:
+            return Response({'detail': 'binary avatar uploads are not enabled on this server'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if updated_fields:
+        profile.save(update_fields=sorted(set(updated_fields)))
+
+    return Response(_serialize_profile_response(request.user))
 
 
 @api_view(['POST'])

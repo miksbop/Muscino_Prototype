@@ -16,6 +16,16 @@
   color: rgba(255, 255, 255, 0.18);
 }
 
+.market-listing-row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.market-listing-row:hover {
+  border-color: rgba(var(--rarity-rgb), 0.55);
+  box-shadow: 0 0 0 1px rgba(var(--rarity-rgb), 0.28), 0 0 20px rgba(var(--rarity-rgb), 0.24);
+}
+
 /* Firefox fallback (no zoom support). */
 @supports not (zoom: 1) {
   .market-page-unscaled {

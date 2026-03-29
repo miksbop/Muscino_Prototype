@@ -28,6 +28,7 @@ export function MarketPage() {
   const [costSortDirection, setCostSortDirection] = useState<SortDirection>("asc");
   const [currentPage, setCurrentPage] = useState(1);
   const [fitScale, setFitScale] = useState(1);
+  const [runEntryAnimation, setRunEntryAnimation] = useState(true);
 
   const loadListings = async () => {
     setLoading(true);
@@ -58,6 +59,16 @@ export function MarketPage() {
     window.addEventListener("resize", computeScale);
     return () => window.removeEventListener("resize", computeScale);
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+
+    const timeout = window.setTimeout(() => {
+      setRunEntryAnimation(false);
+    }, 850);
+
+    return () => window.clearTimeout(timeout);
+  }, [loading]);
 
   const buyListing = async (listingId: number) => {
     if (buyingId !== null) return;
@@ -135,7 +146,7 @@ export function MarketPage() {
           height: `${BASE_MARKET_HEIGHT * fitScale}px`,
         }}
       >
-        <div className="market-side-label tracking-wide">Market</div>
+        <div className="market-side-label tracking-wide"></div>
         <div
           className="origin-top-left"
           style={{
@@ -205,14 +216,20 @@ export function MarketPage() {
                   </div>
 
                   <div className="flex-1 min-h-0 grid grid-rows-6 gap-3 py-3">
-                    {pagedListings.map((listing) => {
+                    {pagedListings.map((listing, index) => {
                       const isOwn = user?.username === listing.seller;
                       const buyingThis = buyingId === listing.id;
 
                       return (
                         <div
                           key={listing.id}
-                          className={`${rowGridClass} h-full min-h-0 rounded-lg bg-black/30 border border-white/5 px-4 py-4`}
+                          className={`${rowGridClass} market-listing-row h-full min-h-0 rounded-lg bg-black/30 px-4 py-4 ${
+                            runEntryAnimation ? "market-listing-row--drop-in" : ""
+                          }`}
+                          style={{
+                            ["--rarity-rgb" as const]: rarityRgb(listing.rarity),
+                            animationDelay: `${index * 75}ms`,
+                          } as CSSProperties}
                         >
                           <div className="flex items-center justify-center">
                             <img
@@ -263,48 +280,58 @@ export function MarketPage() {
                       );
                     })}
 
-                    {Array.from({ length: fillerRows }).map((_, index) => (
-                      <div
-                        key={`empty-market-row-${index}`}
-                        aria-hidden="true"
-                        className={`${rowGridClass} h-full min-h-0 rounded-lg bg-black/20 border border-white/5 px-4 py-4`}
-                      >
-                        <div className="flex items-center justify-center">
-                          <div className="w-20 h-20 rounded-md border border-white/10 bg-white/5" />
-                        </div>
-                        <div className="text-neutral-500">...</div>
-                        <div className="text-neutral-500">...</div>
-                        <div className="text-neutral-500">...</div>
-                        <div className="text-neutral-500">...</div>
-                        <div />
-                      </div>
+                    {Array.from({ length: fillerRows }).map((_, idx) => (
+                      <div key={`filler-${idx}`} className={`${rowGridClass} rounded-lg border border-white/0 px-4 py-4 opacity-0`} aria-hidden="true" />
                     ))}
                   </div>
 
-                  <div className="pt-2 border-t border-white/10 flex justify-end items-center gap-1 text-sm">
-                    {paginationPages.map((page, index) => {
-                      const previousPage = paginationPages[index - 1];
-                      const showGap = previousPage !== undefined && page - previousPage > 1;
+                  <div className="mt-2 border-t border-white/10 pt-3 px-3 flex items-center justify-between text-sm text-neutral-300">
+                    <div>
+                      Showing {(currentPage - 1) * ROWS_PER_PAGE + (pagedListings.length ? 1 : 0)}-
+                      {(currentPage - 1) * ROWS_PER_PAGE + pagedListings.length} of {filteredListings.length}
+                    </div>
 
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showGap ? <span className="px-1 text-neutral-500">...</span> : null}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCurrentPage(page);
-                            }}
-                            className={`px-2 py-1 rounded border ${
-                              page === currentPage
-                                ? "border-blue-400 bg-blue-500/20 text-blue-200"
-                                : "border-white/20 bg-white/5 hover:bg-white/10"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        </div>
-                      );
-                    })}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1 rounded border border-white/15 disabled:opacity-50"
+                      >
+                        Prev
+                      </button>
+
+                      {paginationPages.map((page, idx) => {
+                        const previous = paginationPages[idx - 1];
+                        const showGap = previous !== undefined && page - previous > 1;
+
+                        return (
+                          <span key={`page-${page}`} className="flex items-center gap-1.5">
+                            {showGap ? <span className="px-1 text-neutral-500">…</span> : null}
+                            <button
+                              type="button"
+                              onClick={() => setCurrentPage(page)}
+                              className={`px-2.5 py-1 rounded border ${
+                                page === currentPage
+                                  ? "border-white/40 bg-white/15 text-white"
+                                  : "border-white/15 text-neutral-300 hover:text-white"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </span>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2.5 py-1 rounded border border-white/15 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
                 </>
               )}

@@ -2,10 +2,12 @@
 Generate weekly genre sleeves from Spotify WITHOUT touching player inventory.
 
 Product rules for each generated sleeve:
-- exactly 8 songs
+- exactly 16 songs
 - 2 Legendary
 - 2 Epic
-- 4 Common
+- 3 Rare
+- 4 Uncommon
+- 5 Common
 
 This script intentionally updates only Song/Sleeve/SleeveSong data.
 It does not delete OwnedSong, User, or Profile rows.
@@ -19,6 +21,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any
@@ -33,12 +36,22 @@ from api.models import Song, Sleeve, SleeveSong  # noqa: E402
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_BASE = "https://api.spotify.com/v1"
+MAX_SPOTIFY_RETRIES = 3
+MAX_SPOTIFY_RETRY_AFTER_SECONDS = int(os.environ.get("SPOTIFY_MAX_RETRY_AFTER_SECONDS", "20"))
+MAX_SEED_ARTISTS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_MAX_SEED_ARTISTS", "12"))
+SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS = float(os.environ.get("SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS", "0.80"))
+SPOTIFY_ARTIST_QUERY_DELAY_SECONDS = float(os.environ.get("SPOTIFY_ARTIST_QUERY_DELAY_SECONDS", "0.30"))
+MAX_REMOTE_SEARCH_CALLS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_MAX_SEARCH_CALLS_PER_GENRE", "60"))
 
 TARGET_DISTRIBUTION: dict[str, int] = {
     "Legendary": 2,
     "Epic": 2,
-    "Common": 4,
+    "Rare": 3,
+    "Uncommon": 4,
+    "Common": 5,
 }
+TOTAL_SLEEVE_SIZE = sum(TARGET_DISTRIBUTION.values())
+_LAST_SPOTIFY_REQUEST_TS = 0.0
 
 GENRE_CONFIG: dict[str, dict[str, Any]] = {
     "Pop": {
@@ -115,6 +128,8 @@ class ScoredCandidate:
     relevance: float
     legendary_fit: float
     epic_fit: float
+    rare_fit: float
+    uncommon_fit: float
     common_fit: float
     artist_repeat_penalty: float
 
@@ -133,6 +148,14 @@ def _fallback_popularity(track_id: str) -> int:
     return int(35 + 45 * _stable_jitter(track_id))
 
 
+def _pace_spotify_requests() -> None:
+    global _LAST_SPOTIFY_REQUEST_TS
+    elapsed = time.monotonic() - _LAST_SPOTIFY_REQUEST_TS
+    if elapsed < SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS:
+        time.sleep(SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS - elapsed)
+    _LAST_SPOTIFY_REQUEST_TS = time.monotonic()
+
+
 def spotify_token(client_id: str, client_secret: str) -> str:
     credentials = f"{client_id}:{client_secret}".encode("utf-8")
     auth_header = base64.b64encode(credentials).decode("utf-8")
@@ -148,6 +171,7 @@ def spotify_token(client_id: str, client_secret: str) -> str:
         method="POST",
     )
 
+    _pace_spotify_requests()
     with request.urlopen(req, timeout=20) as response:
         data = json.load(response)
     return data["access_token"]
@@ -159,8 +183,32 @@ def spotify_get(path: str, token: str, params: dict[str, Any] | None = None) -> 
         f"{SPOTIFY_API_BASE}{path}{query}",
         headers={"Authorization": f"Bearer {token}"},
     )
-    with request.urlopen(req, timeout=25) as response:
-        return json.load(response)
+    for attempt in range(MAX_SPOTIFY_RETRIES):
+        try:
+            _pace_spotify_requests()
+            with request.urlopen(req, timeout=25) as response:
+                return json.load(response)
+        except error.HTTPError as exc:
+            if exc.code == 429 and attempt < MAX_SPOTIFY_RETRIES - 1:
+                retry_after = exc.headers.get("Retry-After")
+                try:
+                    retry_after_seconds = int(retry_after) if retry_after else (2 ** attempt)
+                except (TypeError, ValueError):
+                    retry_after_seconds = 2 ** attempt
+
+                if retry_after_seconds > MAX_SPOTIFY_RETRY_AFTER_SECONDS:
+                    print(
+                        f"Spotify rate limited on {path}; Retry-After={retry_after_seconds}s "
+                        f"(max wait is {MAX_SPOTIFY_RETRY_AFTER_SECONDS}s), skipping remote fetch."
+                    )
+                    raise
+
+                sleep_seconds = max(1, retry_after_seconds)
+                print(f"Spotify rate limited on {path}; retrying in {sleep_seconds}s (attempt {attempt + 1}/{MAX_SPOTIFY_RETRIES})")
+                time.sleep(sleep_seconds)
+                continue
+            raise
+    raise RuntimeError("spotify_get retry loop exhausted unexpectedly")
 
 
 def _parse_release_date(value: str | None) -> date | None:
@@ -282,14 +330,18 @@ def fetch_candidates_for_genre(token: str, genre: str, limit: int, market: str) 
     cfg = GENRE_CONFIG.get(genre, {"seed_artists": []})
 
     by_track_id: dict[str, Candidate] = {}
+    search_calls = 0
 
     try:
         # Source A: hard-curated top artists per genre (search-only).
         # This intentionally prioritizes recognisable mainstream catalog over raw genre search noise.
-        for artist_name in cfg["seed_artists"][:50]:
+        for artist_name in cfg["seed_artists"][:MAX_SEED_ARTISTS_PER_GENRE]:
             artist_key = _normalize_artist_name(artist_name)
             artist_hits = 0
             for query_text in (f'artist:\"{artist_name}\" genre:{genre.lower()}', f'artist:\"{artist_name}\"'):
+                if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE:
+                    break
+                search_calls += 1
                 for item in _search_tracks(token, query_text=query_text, limit=min(limit, 3), market=market):
                     item_artists = item.get("artists", [])
                     primary_artist_name = item_artists[0].get("name", "") if item_artists else ""
@@ -301,9 +353,19 @@ def fetch_candidates_for_genre(token: str, genre: str, limit: int, market: str) 
                         artist_hits += 1
                 if artist_hits > 0:
                     break
+                time.sleep(max(0.0, SPOTIFY_ARTIST_QUERY_DELAY_SECONDS))
+            if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE:
+                print(
+                    f"Reached max Spotify search calls for genre={genre} "
+                    f"({MAX_REMOTE_SEARCH_CALLS_PER_GENRE}); using collected candidates so far."
+                )
+                break
+            if len(by_track_id) >= max(limit * 2, TOTAL_SLEEVE_SIZE):
+                break
     except error.HTTPError as exc:
-        if exc.code == 403:
-            print(f"Spotify forbidden for genre={genre}; falling back to local catalog candidates.")
+        if exc.code in (403, 429):
+            reason = "forbidden" if exc.code == 403 else "rate-limited"
+            print(f"Spotify {reason} for genre={genre}; falling back to local catalog candidates.")
             return _local_candidates_for_genre(genre=genre, limit=limit)
         raise
 
@@ -353,6 +415,8 @@ def score_candidates(candidates: list[Candidate], genre: str) -> list[ScoredCand
         # Rarity-fit stays separate from relevance.
         legendary_fit = relevance + 0.25 * popularity_norm + 0.10 * recency
         epic_fit = relevance + 0.20 * (1 - abs(popularity_norm - 0.72))
+        rare_fit = relevance + 0.19 * (1 - abs(popularity_norm - 0.60))
+        uncommon_fit = relevance + 0.20 * (1 - abs(popularity_norm - 0.52)) + 0.04 * source_boost
         common_fit = relevance + 0.22 * (1 - abs(popularity_norm - 0.45)) + 0.07 * source_boost
 
         scored.append(
@@ -361,6 +425,8 @@ def score_candidates(candidates: list[Candidate], genre: str) -> list[ScoredCand
                 relevance=relevance,
                 legendary_fit=legendary_fit,
                 epic_fit=epic_fit,
+                rare_fit=rare_fit,
+                uncommon_fit=uncommon_fit,
                 common_fit=common_fit,
                 artist_repeat_penalty=artist_repeat_penalty,
             )
@@ -404,7 +470,13 @@ def select_final_sleeve(scored: list[ScoredCandidate]) -> list[tuple[ScoredCandi
 
     chosen: list[tuple[ScoredCandidate, str]] = []
 
-    for rarity, fit_attr in (("Legendary", "legendary_fit"), ("Epic", "epic_fit"), ("Common", "common_fit")):
+    for rarity, fit_attr in (
+        ("Legendary", "legendary_fit"),
+        ("Epic", "epic_fit"),
+        ("Rare", "rare_fit"),
+        ("Uncommon", "uncommon_fit"),
+        ("Common", "common_fit"),
+    ):
         picks = _select_bucket(
             pool=scored,
             already_used_track_ids=used_tracks,
@@ -415,9 +487,9 @@ def select_final_sleeve(scored: list[ScoredCandidate]) -> list[tuple[ScoredCandi
         chosen.extend((p, rarity) for p in picks)
 
     # Backfill if constraints made us short (still enforce unique tracks; relax artist uniqueness only if needed).
-    if len(chosen) < 8:
+    if len(chosen) < TOTAL_SLEEVE_SIZE:
         for item in sorted(scored, key=lambda x: x.relevance, reverse=True):
-            if len(chosen) >= 8:
+            if len(chosen) >= TOTAL_SLEEVE_SIZE:
                 break
             if item.candidate.track_id in used_tracks:
                 continue
@@ -426,10 +498,10 @@ def select_final_sleeve(scored: list[ScoredCandidate]) -> list[tuple[ScoredCandi
             chosen.append((item, fallback_rarity))
 
     # Keep deterministic order by rarity bands then score
-    rarity_rank = {"Legendary": 0, "Epic": 1, "Common": 2}
+    rarity_rank = {"Legendary": 0, "Epic": 1, "Rare": 2, "Uncommon": 3, "Common": 4}
     chosen.sort(key=lambda x: (rarity_rank[x[1]], -x[0].relevance))
 
-    return chosen[:8]
+    return chosen[:TOTAL_SLEEVE_SIZE]
 
 
 def upsert_sleeve_entries(genre: str, chosen: list[tuple[ScoredCandidate, str]]) -> None:
@@ -452,7 +524,7 @@ def upsert_sleeve_entries(genre: str, chosen: list[tuple[ScoredCandidate, str]])
 
     SleeveSong.objects.filter(sleeve=sleeve).delete()
 
-    rarity_counts = {"Legendary": 0, "Epic": 0, "Common": 0}
+    rarity_counts = {"Legendary": 0, "Epic": 0, "Rare": 0, "Uncommon": 0, "Common": 0}
 
     for item, rarity in chosen:
         c = item.candidate
@@ -473,7 +545,11 @@ def upsert_sleeve_entries(genre: str, chosen: list[tuple[ScoredCandidate, str]])
 
     print(
         f"Updated {sleeve.name}: "
-        f"Legendary={rarity_counts['Legendary']} Epic={rarity_counts['Epic']} Common={rarity_counts['Common']}"
+        f"Legendary={rarity_counts['Legendary']} "
+        f"Epic={rarity_counts['Epic']} "
+        f"Rare={rarity_counts['Rare']} "
+        f"Uncommon={rarity_counts['Uncommon']} "
+        f"Common={rarity_counts['Common']}"
     )
 
 
@@ -486,7 +562,7 @@ def refresh_genre_sleeve(token: str, genre: str, limit: int, market: str) -> Non
     scored = score_candidates(candidates, genre=genre)
     chosen = select_final_sleeve(scored)
 
-    if len(chosen) < 8:
+    if len(chosen) < TOTAL_SLEEVE_SIZE:
         print(f"Not enough candidates for full sleeve in genre={genre}; got={len(chosen)}")
         return
 

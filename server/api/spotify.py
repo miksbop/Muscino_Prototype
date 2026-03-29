@@ -13,6 +13,7 @@ SPOTIFY_TRACKS_URL = "https://api.spotify.com/v1/tracks"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 TOKEN_CACHE_KEY = "spotify:client-token"
 DEFAULT_TRACK_CACHE_TTL = int(os.environ.get("SPOTIFY_TRACK_CACHE_TTL_SECONDS", "3600"))
+SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS = float(os.environ.get("SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS", "0.25"))
 
 
 @dataclass
@@ -28,10 +29,31 @@ class SpotifyClient:
     def __init__(self) -> None:
         self.client_id = os.environ.get("SPOTIFY_CLIENT_ID")
         self.client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+        self.last_error_code: int | None = None
+        self.last_retry_after_seconds: int | None = None
+        self._last_request_ts = 0.0
 
     @property
     def is_configured(self) -> bool:
         return bool(self.client_id and self.client_secret)
+
+    def _clear_last_error(self) -> None:
+        self.last_error_code = None
+        self.last_retry_after_seconds = None
+
+    def _capture_http_error(self, exc: error.HTTPError) -> None:
+        self.last_error_code = exc.code
+        retry_after = exc.headers.get("Retry-After")
+        try:
+            self.last_retry_after_seconds = int(retry_after) if retry_after else None
+        except (TypeError, ValueError):
+            self.last_retry_after_seconds = None
+
+    def _pace_requests(self) -> None:
+        elapsed = time.monotonic() - self._last_request_ts
+        if elapsed < SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS:
+            time.sleep(SPOTIFY_CLIENT_MIN_INTERVAL_SECONDS - elapsed)
+        self._last_request_ts = time.monotonic()
 
     def _token_from_spotify(self) -> tuple[str, int]:
         creds = f"{self.client_id}:{self.client_secret}".encode("utf-8")
@@ -46,6 +68,7 @@ class SpotifyClient:
             },
             method="POST",
         )
+        self._pace_requests()
         with request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         return data["access_token"], int(data.get("expires_in", 3600))
@@ -68,6 +91,7 @@ class SpotifyClient:
         return token
 
     def get_tracks(self, track_ids: list[str]) -> dict[str, SpotifyTrackData]:
+        self._clear_last_error()
         token = self.access_token()
         if not token or not track_ids:
             return {}
@@ -84,9 +108,13 @@ class SpotifyClient:
                 method="GET",
             )
             try:
+                self._pace_requests()
                 with request.urlopen(req, timeout=20) as resp:
                     payload = json.loads(resp.read().decode("utf-8"))
-            except (error.HTTPError, error.URLError, TimeoutError, ValueError):
+            except error.HTTPError as exc:
+                self._capture_http_error(exc)
+                continue
+            except (error.URLError, TimeoutError, ValueError):
                 continue
 
             for track in payload.get("tracks", []):
@@ -97,6 +125,7 @@ class SpotifyClient:
         return results
 
     def search_artist_tracks(self, artist_keyword: str, limit: int = 10) -> list[SpotifyTrackData]:
+        self._clear_last_error()
         token = self.access_token()
         if not token:
             return []
@@ -110,9 +139,13 @@ class SpotifyClient:
             method="GET",
         )
         try:
+            self._pace_requests()
             with request.urlopen(req, timeout=20) as resp:
                 payload = json.loads(resp.read().decode("utf-8"))
-        except (error.HTTPError, error.URLError, TimeoutError, ValueError):
+        except error.HTTPError as exc:
+            self._capture_http_error(exc)
+            return []
+        except (error.URLError, TimeoutError, ValueError):
             return []
 
         tracks = payload.get("tracks", {}).get("items", [])
