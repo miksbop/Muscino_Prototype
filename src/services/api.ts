@@ -11,6 +11,7 @@ export type RerollInventoryResponse = {
 import type { Sleeve } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
 import type { ProfileView } from "../types/profile";
+import type { FriendsOverview } from "../types/friends";
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
@@ -163,6 +164,33 @@ export const api = {
     }
     return (await res.json()) as ProfileView;
   },
+
+  async getFriendsOverview(): Promise<FriendsOverview> {
+    return await fetchJson<FriendsOverview>("/api/friends/");
+  },
+
+  async sendFriendRequest(username: string): Promise<FriendsOverview> {
+    return await fetchJson<FriendsOverview>("/api/friends/requests/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+  },
+
+  async acceptFriendRequest(requestId: number): Promise<FriendsOverview> {
+    return await fetchJson<FriendsOverview>(`/api/friends/requests/${requestId}/accept/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+
+  async denyFriendRequest(requestId: number): Promise<FriendsOverview> {
+    return await fetchJson<FriendsOverview>(`/api/friends/requests/${requestId}/deny/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+  },
+
 
   __resetMocks() {
     // no-op now that authenticated endpoints no longer silently fallback to local mock state

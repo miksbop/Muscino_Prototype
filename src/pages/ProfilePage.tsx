@@ -41,6 +41,8 @@ export function ProfilePage() {
   const [editInventorySongs, setEditInventorySongs] = useState<ProfileView["showcaseSongs"]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSendingFriendRequest, setIsSendingFriendRequest] = useState(false);
+  const [friendRequestMessage, setFriendRequestMessage] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -201,6 +203,23 @@ export function ProfilePage() {
     }
   };
 
+  
+
+  const onAddFriend = async () => {
+    if (!profile) return;
+    setIsSendingFriendRequest(true);
+    setFriendRequestMessage(null);
+    try {
+      await api.sendFriendRequest(profile.username);
+      setFriendRequestMessage("Friend request sent.");
+    } catch (err) {
+      setFriendRequestMessage(err instanceof Error ? err.message : "Could not send friend request.");
+    } finally {
+      setIsSendingFriendRequest(false);
+    }
+  };
+
+
   const favoriteSongOptions = useMemo(() => {
     if (!profile) return [];
 
@@ -290,12 +309,19 @@ export function ProfilePage() {
                   Edit Profile
                 </button>
               ) : (
-                <button
-                  type="button"
-                  className="rounded-md border border-sky-300/30 bg-sky-500/10 px-4 py-2 text-sm text-sky-100 hover:bg-sky-500/20"
-                >
-                  Add Friend
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void onAddFriend(); }}
+                    disabled={isSendingFriendRequest}
+                    className="rounded-md border border-sky-300/30 bg-sky-500/10 px-4 py-2 text-sm text-sky-100 hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSendingFriendRequest ? "Sending..." : "Add Friend"}
+                  </button>
+                  {friendRequestMessage ? (
+                    <p className="text-xs text-sky-100/85">{friendRequestMessage}</p>
+                  ) : null}
+                </div>
               )}
             </div>
 

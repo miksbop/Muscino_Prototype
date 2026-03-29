@@ -10,8 +10,6 @@ import { PlayPage } from "./pages/PlayPage";
 import { LoginPage } from "./pages/LoginPage";
 import { MarketPage } from "./pages/MarketPage";
 import { ProfilePage } from "./pages/ProfilePage";
-import { initializeFontLab } from "./config/fontLab";
-
 import "./styles/index.css"; // Tailwind + global rules        // (TEMP) unsorted shared rules bucket
 import "./styles/shared/ui.css"; // shared utilities (new drawer)
 import "./styles/shared/effects.css"; // shared effects (new drawer)
@@ -23,7 +21,6 @@ import "./styles/pages/market.css"; // Market page scale corrections
 import "./styles/pages/profile.css"; // Profile page animations/effects
 
 
-initializeFontLab();
 
 const router = createBrowserRouter([
   {

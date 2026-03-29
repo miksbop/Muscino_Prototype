@@ -428,7 +428,7 @@
 
 .muscino-opening-current.is-revealed {
   font-size: clamp(2rem, 2.9vw, 3.25rem);
-  margin-top: 1.35rem;
+  margin-top: 1rem;
 }
 
 .muscino-opening-featured {
@@ -496,7 +496,7 @@
 
 .muscino-opening-soundbar {
   position: absolute;
-  top: 44%;
+  top: 50%;
   left: calc(50% + 60px);
   transform: translate(-50%, -50%);
   width: min(860px, 82vw);

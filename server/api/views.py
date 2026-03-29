@@ -10,8 +10,16 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
-from .models import Sleeve, SleeveSong, OwnedSong, Song, MarketListing, Profile
-from .serializers import SleeveSerializer, OwnedSongSerializer, SongSerializer, UserSerializer, MarketListingSerializer
+from .models import Sleeve, SleeveSong, OwnedSong, Song, MarketListing, Profile, FriendRequest
+from .serializers import (
+    SleeveSerializer,
+    OwnedSongSerializer,
+    SongSerializer,
+    UserSerializer,
+    MarketListingSerializer,
+    FriendUserSerializer,
+    FriendRequestSerializer,
+)
 from .spotify import SpotifyClient, hydrate_songs_from_spotify
 
 DAILY_LOGIN_BONUS = 100
@@ -365,6 +373,139 @@ def profile_update(request, username):
         profile.save(update_fields=sorted(set(updated_fields)))
 
     return Response(_serialize_profile_response(request.user))
+
+
+
+
+def _serialize_friends_payload(user: User):
+    profile, _ = Profile.objects.get_or_create(user=user, defaults={'display_name': user.username})
+
+    friend_users = [friend_profile.user for friend_profile in profile.friends.select_related('user').all()]
+    friends_data = FriendUserSerializer(friend_users, many=True).data
+
+    incoming_requests = (
+        FriendRequest.objects
+        .select_related('from_user__profile', 'to_user__profile')
+        .filter(to_user=user, status='pending')
+        .order_by('-created_at')
+    )
+    incoming_data = FriendRequestSerializer(incoming_requests, many=True).data
+
+    outgoing_requests = (
+        FriendRequest.objects
+        .select_related('from_user__profile', 'to_user__profile')
+        .filter(from_user=user, status='pending')
+        .order_by('-created_at')
+    )
+    outgoing_data = FriendRequestSerializer(outgoing_requests, many=True).data
+
+    return {
+        'friends': friends_data,
+        'incomingRequests': incoming_data,
+        'outgoingRequests': outgoing_data,
+    }
+
+
+@api_view(['GET'])
+def friends_overview(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    return Response(_serialize_friends_payload(request.user))
+
+
+@api_view(['POST'])
+def send_friend_request(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    username = (request.data.get('username') or '').strip()
+    if not username:
+        return Response({'detail': 'username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    target_user = User.objects.filter(username=username).select_related('profile').first()
+    if target_user is None:
+        return Response({'detail': 'target user not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if target_user.id == request.user.id:
+        return Response({'detail': 'cannot send a friend request to yourself'}, status=status.HTTP_400_BAD_REQUEST)
+
+    my_profile, _ = Profile.objects.get_or_create(user=request.user, defaults={'display_name': request.user.username})
+    target_profile, _ = Profile.objects.get_or_create(user=target_user, defaults={'display_name': target_user.username})
+
+    if my_profile.friends.filter(id=target_profile.id).exists():
+        return Response({'detail': 'already friends'}, status=status.HTTP_400_BAD_REQUEST)
+
+    reverse_pending = FriendRequest.objects.filter(from_user=target_user, to_user=request.user, status='pending').first()
+    if reverse_pending:
+        with transaction.atomic():
+            my_profile.friends.add(target_profile)
+            reverse_pending.status = 'accepted'
+            reverse_pending.responded_at = timezone.now()
+            reverse_pending.save(update_fields=['status', 'responded_at'])
+        return Response(_serialize_friends_payload(request.user), status=status.HTTP_200_OK)
+
+    existing = FriendRequest.objects.filter(from_user=request.user, to_user=target_user).first()
+    if existing and existing.status == 'pending':
+        return Response(_serialize_friends_payload(request.user), status=status.HTTP_200_OK)
+
+    if existing and existing.status in {'denied', 'accepted'}:
+        existing.status = 'pending'
+        existing.responded_at = None
+        existing.save(update_fields=['status', 'responded_at'])
+    else:
+        FriendRequest.objects.create(from_user=request.user, to_user=target_user, status='pending')
+
+    return Response(_serialize_friends_payload(request.user), status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+def accept_friend_request(request, request_id):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    with transaction.atomic():
+        friend_request = FriendRequest.objects.select_for_update().select_related('from_user__profile', 'to_user__profile').filter(id=request_id).first()
+        if friend_request is None:
+            return Response({'detail': 'friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if friend_request.to_user_id != request.user.id:
+            return Response({'detail': "cannot respond to another user's friend request"}, status=status.HTTP_403_FORBIDDEN)
+
+        if friend_request.status != 'pending':
+            return Response({'detail': 'friend request is no longer pending'}, status=status.HTTP_400_BAD_REQUEST)
+
+        sender_profile, _ = Profile.objects.get_or_create(user=friend_request.from_user, defaults={'display_name': friend_request.from_user.username})
+        receiver_profile, _ = Profile.objects.get_or_create(user=request.user, defaults={'display_name': request.user.username})
+        receiver_profile.friends.add(sender_profile)
+
+        friend_request.status = 'accepted'
+        friend_request.responded_at = timezone.now()
+        friend_request.save(update_fields=['status', 'responded_at'])
+
+    return Response(_serialize_friends_payload(request.user), status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def deny_friend_request(request, request_id):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    friend_request = FriendRequest.objects.filter(id=request_id).first()
+    if friend_request is None:
+        return Response({'detail': 'friend request not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if friend_request.to_user_id != request.user.id:
+        return Response({'detail': "cannot respond to another user's friend request"}, status=status.HTTP_403_FORBIDDEN)
+
+    if friend_request.status != 'pending':
+        return Response({'detail': 'friend request is no longer pending'}, status=status.HTTP_400_BAD_REQUEST)
+
+    friend_request.status = 'denied'
+    friend_request.responded_at = timezone.now()
+    friend_request.save(update_fields=['status', 'responded_at'])
+
+    return Response(_serialize_friends_payload(request.user), status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

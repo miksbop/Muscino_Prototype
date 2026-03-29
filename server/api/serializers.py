@@ -1,7 +1,7 @@
 import base64
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Song, Sleeve, SleeveSong, OwnedSong, MarketListing
+from .models import Song, Sleeve, SleeveSong, OwnedSong, MarketListing, FriendRequest
 
 
 def _profile_avatar_data_url(profile):
@@ -92,6 +92,53 @@ class UserSerializer(serializers.ModelSerializer):
             return _profile_avatar_data_url(obj.profile)
         except Exception:
             return None
+
+
+class FriendUserSerializer(serializers.ModelSerializer):
+    displayName = serializers.SerializerMethodField()
+    wallet = serializers.SerializerMethodField()
+    avatarUrl = serializers.SerializerMethodField()
+    bio = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'displayName', 'wallet', 'avatarUrl', 'bio']
+
+    def get_displayName(self, obj):
+        try:
+            return obj.profile.display_name or obj.username
+        except Exception:
+            return obj.username
+
+    def get_wallet(self, obj):
+        try:
+            return obj.profile.wallet
+        except Exception:
+            return 0
+
+    def get_avatarUrl(self, obj):
+        try:
+            return _profile_avatar_data_url(obj.profile)
+        except Exception:
+            return None
+
+    def get_bio(self, obj):
+        try:
+            return obj.profile.bio or ''
+        except Exception:
+            return ''
+
+
+class FriendRequestSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(read_only=True)
+    fromUser = FriendUserSerializer(source='from_user', read_only=True)
+    toUser = FriendUserSerializer(source='to_user', read_only=True)
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = FriendRequest
+        fields = ['id', 'status', 'fromUser', 'toUser', 'createdAt']
+
 
 
 class MarketListingSerializer(serializers.ModelSerializer):

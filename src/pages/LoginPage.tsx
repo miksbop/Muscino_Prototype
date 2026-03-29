@@ -22,10 +22,11 @@ export function LoginPage() {
       setSubmitting(true);
       if (mode === "login") {
         await signIn({ username, password });
+        navigate("/");
       } else {
         await signUp({ username, password });
+        navigate("/collection");
       }
-      navigate("/collection");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to process request");
     } finally {

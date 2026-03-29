@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { OwnedSong } from "../types/song";
 import { api } from "../services/api";
@@ -9,6 +9,8 @@ import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useAuth } from "../context/useAuth";
 
+type RerollFxState = "idle" | "dropping" | "merging" | "exploding" | "revealed";
+
 const RARITY_ORDER: Record<OwnedSong["rarity"], number> = {
   Legendary: 5,
   Epic: 4,
@@ -18,6 +20,9 @@ const RARITY_ORDER: Record<OwnedSong["rarity"], number> = {
 };
 
 const COLS_DESKTOP = 4;
+const REROLL_DROP_MS = 480;
+const REROLL_MERGE_MS = 260;
+const REROLL_EXPLOSION_MS = 420;
 
 export function CollectionPage() {
   const { refreshUser } = useAuth();
@@ -29,6 +34,16 @@ export function CollectionPage() {
   const [rerollSelection, setRerollSelection] = useState<string[]>([]);
   const [artistKeyword, setArtistKeyword] = useState("");
   const [rerolling, setRerolling] = useState(false);
+  const [rerollFxOpen, setRerollFxOpen] = useState(false);
+  const [rerollFxState, setRerollFxState] = useState<RerollFxState>("idle");
+  const [rerollFxInputs, setRerollFxInputs] = useState<OwnedSong[]>([]);
+  const [rerollResultSong, setRerollResultSong] = useState<OwnedSong | null>(null);
+  const rerollFxTimersRef = useRef<number[]>([]);
+
+  const clearRerollFxTimers = () => {
+    rerollFxTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    rerollFxTimersRef.current = [];
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +63,7 @@ export function CollectionPage() {
 
     return () => {
       cancelled = true;
+      clearRerollFxTimers();
     };
   }, []);
 
@@ -84,6 +100,35 @@ export function CollectionPage() {
     }
   };
 
+  const closeRerollFx = () => {
+    clearRerollFxTimers();
+    setRerollFxOpen(false);
+    setRerollFxState("idle");
+    setRerollFxInputs([]);
+    setRerollResultSong(null);
+  };
+
+  const playRerollFx = (inputs: OwnedSong[], resultSong: OwnedSong) => {
+    clearRerollFxTimers();
+    setRerollFxInputs(inputs.slice(0, 3));
+    setRerollResultSong(resultSong);
+    setRerollFxState("dropping");
+    setRerollFxOpen(true);
+
+    rerollFxTimersRef.current.push(
+      window.setTimeout(() => setRerollFxState("merging"), REROLL_DROP_MS),
+    );
+    rerollFxTimersRef.current.push(
+      window.setTimeout(() => setRerollFxState("exploding"), REROLL_DROP_MS + REROLL_MERGE_MS),
+    );
+    rerollFxTimersRef.current.push(
+      window.setTimeout(
+        () => setRerollFxState("revealed"),
+        REROLL_DROP_MS + REROLL_MERGE_MS + REROLL_EXPLOSION_MS,
+      ),
+    );
+  };
+
   const toggleRerollSong = (ownedSongId: string) => {
     setRerollSelection((current) => {
       if (current.includes(ownedSongId)) {
@@ -115,6 +160,7 @@ export function CollectionPage() {
         return;
       }
 
+      const selectedInputs = songs.filter((song) => parsedOwnedSongIds.includes(Number(song.id))).slice(0, 3);
       const result = await api.rerollInventorySongs({
         ownedSongIds: parsedOwnedSongIds,
         artistKeyword: artistKeyword.trim(),
@@ -127,13 +173,36 @@ export function CollectionPage() {
       setRerollOpen(false);
       setRerollSelection([]);
       setArtistKeyword("");
-      window.alert(`You rolled a ${result.rolledRarity} song: ${result.newSong.title} by ${result.newSong.artist}.`);
+      playRerollFx(selectedInputs, newlyCreated);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to reroll songs.";
       window.alert(message);
     } finally {
       setRerolling(false);
     }
+  };
+
+  const previewRerollAnimation = () => {
+    if (rerollSelection.length !== 3) {
+      window.alert("Select exactly 3 songs to preview the reroll animation.");
+      return;
+    }
+
+    const selectedInputs = songs.filter((song) => rerollSelection.includes(String(song.id))).slice(0, 3);
+    if (selectedInputs.length !== 3) {
+      window.alert("Unable to build preview from selection.");
+      return;
+    }
+
+    const unselectedPool = songs.filter((song) => !rerollSelection.includes(String(song.id)));
+    const previewSource = unselectedPool[Math.floor(Math.random() * unselectedPool.length)] ?? selectedInputs[0];
+    const previewSong: OwnedSong = {
+      ...previewSource,
+      rarity: previewSource.rarity,
+    };
+
+    setRerollOpen(false);
+    playRerollFx(selectedInputs, previewSong);
   };
 
   return (
@@ -301,6 +370,15 @@ export function CollectionPage() {
                 >
                   {rerolling ? "Rerolling..." : "Exchange 3 Songs"}
                 </button>
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-sm font-medium disabled:opacity-60"
+                  onClick={previewRerollAnimation}
+                  disabled={rerolling || rerollSelection.length !== 3}
+                  title="Preview animation only (does not call backend or consume songs)"
+                >
+                  Preview Animation
+                </button>
               </div>
 
               <div className="text-xs text-neutral-400">
@@ -333,6 +411,85 @@ export function CollectionPage() {
                     </button>
                   );
                 })}
+              </div>
+            </GlassPanel>
+          </div>
+        </div>
+      )}
+
+      {rerollFxOpen && (
+        <div className="muscino-reroll-overlay" role="dialog" aria-modal="true" aria-label="Reroll result">
+          <div
+            className="muscino-reroll-backdrop"
+            onClick={() => {
+              if (rerollFxState === "revealed") closeRerollFx();
+            }}
+          />
+
+          <div className="muscino-reroll-center">
+            <GlassPanel className="muscino-reroll-panel">
+              <div className={["muscino-reroll-sequence", `is-${rerollFxState}`].join(" ")}>
+                {rerollFxState !== "revealed" && (
+                  <>
+                    <div className="muscino-reroll-drop-zone" aria-hidden="true">
+                      {rerollFxInputs.map((song, index) => (
+                        <div
+                          key={`fx-input-${song.id}-${index}`}
+                          className="muscino-reroll-input-card"
+                          style={{ ["--offset" as const]: index - 1 } as CSSProperties}
+                        >
+                          <img src={song.coverUrl} alt="" draggable={false} />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div
+                      className="muscino-reroll-explosion"
+                      style={{ ["--rarity-rgb" as const]: rarityRgb(rerollResultSong?.rarity ?? "Common") } as CSSProperties}
+                      aria-hidden="true"
+                    />
+                  </>
+                )}
+
+                {rerollFxState === "revealed" && rerollResultSong && (
+                  <>
+                    <div className="text-3xl md:text-4xl font-medium text-white/90 -mt-7"></div>
+                    <div className="muscino-reroll-reveal-stage">
+                      <div
+                        className="muscino-opening-featured"
+                        style={{ ["--rarity-rgb" as const]: rarityRgb(rerollResultSong.rarity) } as CSSProperties}
+                      >
+                        <div className="muscino-opening-soundbar" aria-hidden="true">
+                          {Array.from({ length: 34 }).map((_, idx) => (
+                            <span key={idx} className="muscino-opening-soundbar-bar" />
+                          ))}
+                        </div>
+
+                        <div className="muscino-opening-featured-card">
+                          {rerollResultSong.coverUrl ? (
+                            <img src={rerollResultSong.coverUrl} alt="" draggable={false} />
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      className="muscino-opening-current is-revealed"
+                      style={{ ["--rarity-rgb" as const]: rarityRgb(rerollResultSong.rarity) } as CSSProperties}
+                    >
+                      {rerollResultSong.title} – {rerollResultSong.artist}
+                    </div>
+
+                    <div className="flex gap-1 pt-0">
+                      <button
+                        onClick={closeRerollFx}
+                        className="px-5 py-2 rounded-xl bg-blue-500/75 border border-blue-300/20 hover:bg-blue-500/90 transition"
+                      >
+                        Confirm
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </GlassPanel>
           </div>

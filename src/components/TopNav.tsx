@@ -1,7 +1,13 @@
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties, MouseEvent } from "react";
 import { useAuth } from "../context/useAuth";
+import { MarqueeText } from "./MarqueeText";
+import { api } from "../services/api";
+import type { FriendRequest, FriendUser } from "../types/friends";
+
+const fallbackAvatar =
+  "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
 
 export function TopNav() {
   const { user, status, isSignedIn, signOut, walletIncreaseSignal } = useAuth();
@@ -18,6 +24,11 @@ export function TopNav() {
   const walletAnimationFrameRef = useRef<number | null>(null);
   const animatedWalletRef = useRef<number>(user?.wallet ?? 0);
   const walletDisplayStorageKey = "muscino:last-displayed-wallet-by-user";
+
+  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+  const [isRequestsExpanded, setIsRequestsExpanded] = useState(false);
+  const [friends, setFriends] = useState<FriendUser[]>([]);
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
 
   const linkBase = "hover:text-white cursor-pointer transition-colors";
   const linkInactive = "text-neutral-300";
@@ -162,6 +173,39 @@ export function TopNav() {
     };
   }, [walletIncreaseSignal?.id, walletIncreaseSignal?.amount, animateWalletTo, user]);
 
+  useEffect(() => {
+    if (!isSignedIn || !isFriendsOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await api.getFriendsOverview();
+        if (cancelled) return;
+        setFriends(data.friends);
+        setFriendRequests(data.incomingRequests);
+      } catch {
+        if (cancelled) return;
+        setFriends([]);
+        setFriendRequests([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignedIn, isFriendsOpen]);
+
+  const handleAcceptRequest = async (requestId: number) => {
+    const data = await api.acceptFriendRequest(requestId);
+    setFriends(data.friends);
+    setFriendRequests(data.incomingRequests);
+  };
+
+  const handleDenyRequest = async (requestId: number) => {
+    const data = await api.denyFriendRequest(requestId);
+    setFriends(data.friends);
+    setFriendRequests(data.incomingRequests);
+  };
+
   return (
     <div className="relative z-50 w-full h-14 border-b border-white/10 bg-neutral-900">
       <div className="max-w-6xl mx-auto h-full px-6 flex items-center justify-between">
@@ -240,7 +284,7 @@ export function TopNav() {
             <span className="text-neutral-400 self-center">Loading session...</span>
           ) : isSignedIn && user ? (
             <>
-              <div className="flex items-center gap-1 min-w-0 h-full">
+              <div className="flex items-center min-w-0 h-full">
                 <NavLink
                   to={`/profile/${encodeURIComponent(user.username)}`}
                   onMouseEnter={(event) => {
@@ -298,14 +342,44 @@ export function TopNav() {
                 </span>
               </div>
 
-              <img
-                src={
-                  user.avatarUrl ??
-                  "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg"
-                }
-                alt="Profile avatar"
-                className="self-center w-8 h-8 rounded-full object-cover border border-white/20 bg-white/10"
-              />
+              <NavLink
+                to={`/profile/${encodeURIComponent(user.username)}`}
+                className="self-center"
+                aria-label="Open my profile"
+                title="My profile"
+              >
+                <img
+                  src={
+                    user.avatarUrl ??
+                    fallbackAvatar
+                  }
+                  alt="Profile avatar"
+                  className="w-8 h-8 rounded-full object-cover border border-white/20 bg-white/10"
+                />
+              </NavLink>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFriendsOpen((prev) => {
+                    const next = !prev;
+                    if (!next) setIsRequestsExpanded(false);
+                    return next;
+                  });
+                }}
+                className={[
+                  "friends-toggle-button self-center rounded-md border px-2.5 py-1.5 text-xs font-medium transition",
+                  isFriendsOpen
+                    ? "border-sky-300/50 bg-sky-500/10 text-sky-100"
+                    : "border-white/15 text-neutral-200 hover:text-white hover:border-white/30",
+                ].join(" ")}
+                aria-expanded={isFriendsOpen}
+                aria-controls="friends-panel"
+                aria-label="Friends"
+                title="Friends"
+              >
+                <img src="/icons/friends.png" alt="" className="h-4 w-4 object-contain" aria-hidden="true" />
+              </button>
 
               <button
                 type="button"
@@ -335,6 +409,82 @@ export function TopNav() {
           )}
         </div>
       </div>
+
+      <aside
+        id="friends-panel"
+        className={`friends-panel ${isFriendsOpen ? "friends-panel--open" : ""}`}
+        aria-hidden={!isFriendsOpen}
+      >
+        <div className="friends-panel__header">Friends</div>
+        <div className="friends-panel__list" role="list" aria-label="Friends list">
+          {friends.map((friend, index) => (
+            <article
+              key={friend.id}
+              className={`friends-card ${isFriendsOpen ? "friends-card--open" : ""}`}
+              style={{ "--friend-index": String(index) } as CSSProperties}
+              role="listitem"
+            >
+              <Link
+                to={`/profile/${encodeURIComponent(friend.username)}`}
+                className="friends-card__main"
+              >
+                <div className="friends-card__row">
+                  <div className="friends-card__meta">
+                    <p className="friends-card__name">{friend.displayName}</p>
+                    <MarqueeText
+                      text={friend.bio}
+                      className="friends-card__bio"
+                      speedPxPerSec={26}
+                      delayMs={700}
+                    />
+                  </div>
+                  <span className="friends-card__wallet">{friend.wallet}</span>
+                  <img src={friend.avatarUrl ?? fallbackAvatar} alt={`${friend.displayName} avatar`} className="friends-card__avatar" />
+                </div>
+              </Link>
+            </article>
+          ))}
+        </div>
+
+        <div className="friends-panel__footer">
+          <button
+            type="button"
+            onClick={() => setIsRequestsExpanded((prev) => !prev)}
+            className="friends-requests-toggle"
+            aria-expanded={isRequestsExpanded}
+          >
+            Friend Requests
+            <span className="friends-requests-toggle__badge">{friendRequests.length}</span>
+          </button>
+
+          <div
+            className={`friends-requests-panel ${isRequestsExpanded ? "friends-requests-panel--open" : ""}`}
+          >
+            {friendRequests.length === 0 ? (
+              <p className="friends-requests-empty">No pending requests.</p>
+            ) : (
+              friendRequests.map((request) => (
+                <div key={request.id} className="friends-requests-card">
+                  <Link
+                    to={`/profile/${encodeURIComponent(request.fromUser.username)}`}
+                    className="friends-requests-card__profile"
+                  >
+                    <img src={request.fromUser.avatarUrl ?? fallbackAvatar} alt={`${request.fromUser.displayName} avatar`} className="friends-requests-card__avatar" />
+                    <div className="friends-requests-card__meta">
+                      <p>{request.fromUser.displayName}</p>
+                      <span>@{request.fromUser.username}</span>
+                    </div>
+                  </Link>
+                  <div className="friends-requests-card__actions">
+                    <button type="button" onClick={() => void handleAcceptRequest(request.id)}>Accept</button>
+                    <button type="button" onClick={() => void handleDenyRequest(request.id)}>Deny</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

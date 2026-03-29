@@ -498,10 +498,10 @@ export function PlayPage() {
                     )}
 
                     {openState === "revealed" && (
-                      <div className="flex gap-3 pt-1">
+                      <div className="flex gap-3 pt-4">
                         <button
                           onClick={closeOverlay}
-                          className="px-5 py-2 rounded-xl bg-blue-500/75 border border-blue-300/20 hover:bg-blue-500/90 transition"
+                          className="px-4 py-1.5 rounded-xl bg-blue-500/75 border border-blue-300/20 hover:bg-blue-500/90 transition"
                         >
                           Confirm
                         </button>
