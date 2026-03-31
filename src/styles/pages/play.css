@@ -307,6 +307,115 @@
       rgba(230, 108, 40, 0.00) 76%);
 }
 
+/* COUNTRY theme (green wash) */
+.play-bg-country {
+  background:
+    linear-gradient(180deg,
+      rgba(118, 215, 140, 0.52) 0%,
+      rgba(62, 170, 98, 0.28) 42%,
+      rgba(7, 9, 13, 0.72) 82%,
+      rgba(7, 9, 13, 1.00) 100%),
+    radial-gradient(1500px 1000px at 50% 10%,
+      rgba(178, 240, 188, 0.64),
+      rgba(178, 240, 188, 0.00) 70%),
+    radial-gradient(1400px 1100px at 12% 75%,
+      rgba(104, 212, 134, 0.50),
+      rgba(104, 212, 134, 0.00) 74%),
+    radial-gradient(1300px 1000px at 88% 78%,
+      rgba(43, 141, 84, 0.42),
+      rgba(43, 141, 84, 0.00) 76%);
+}
+
+/* K-POP theme (pink wash) */
+.play-bg-kpop {
+  background:
+    linear-gradient(180deg,
+      rgba(255, 152, 223, 0.54) 0%,
+      rgba(245, 96, 193, 0.28) 42%,
+      rgba(7, 9, 13, 0.72) 82%,
+      rgba(7, 9, 13, 1.00) 100%),
+    radial-gradient(1500px 1000px at 50% 10%,
+      rgba(255, 205, 240, 0.66),
+      rgba(255, 205, 240, 0.00) 70%),
+    radial-gradient(1400px 1100px at 12% 75%,
+      rgba(255, 145, 218, 0.52),
+      rgba(255, 145, 218, 0.00) 74%),
+    radial-gradient(1300px 1000px at 88% 78%,
+      rgba(230, 79, 171, 0.44),
+      rgba(230, 79, 171, 0.00) 76%);
+}
+
+/* DANCE/ELECTRONIC theme (rainbow slow transitions) */
+.play-bg-dance-electronic {
+  background:
+    linear-gradient(180deg,
+      rgba(255, 95, 109, 0.44) 0%,
+      rgba(250, 176, 5, 0.28) 28%,
+      rgba(76, 201, 240, 0.22) 56%,
+      rgba(167, 139, 250, 0.24) 78%,
+      rgba(7, 9, 13, 0.98) 100%),
+    radial-gradient(1300px 980px at 20% 22%,
+      rgba(255, 99, 132, 0.42),
+      rgba(255, 99, 132, 0.00) 72%),
+    radial-gradient(1200px 920px at 78% 18%,
+      rgba(255, 206, 86, 0.36),
+      rgba(255, 206, 86, 0.00) 72%),
+    radial-gradient(1400px 1040px at 50% 80%,
+      rgba(54, 162, 235, 0.34),
+      rgba(54, 162, 235, 0.00) 75%);
+  animation: playDanceRainbowShift 24s ease-in-out infinite alternate;
+}
+
+/* GAME SOUNDTRACK theme (purple wash) */
+.play-bg-game-soundtrack {
+  background:
+    linear-gradient(180deg,
+      rgba(176, 144, 255, 0.52) 0%,
+      rgba(138, 103, 235, 0.28) 42%,
+      rgba(7, 9, 13, 0.72) 82%,
+      rgba(7, 9, 13, 1.00) 100%),
+    radial-gradient(1500px 1000px at 50% 10%,
+      rgba(216, 196, 255, 0.66),
+      rgba(216, 196, 255, 0.00) 70%),
+    radial-gradient(1400px 1100px at 12% 75%,
+      rgba(165, 134, 255, 0.54),
+      rgba(165, 134, 255, 0.00) 74%),
+    radial-gradient(1300px 1000px at 88% 78%,
+      rgba(114, 83, 214, 0.44),
+      rgba(114, 83, 214, 0.00) 76%);
+}
+
+/* INDIE theme (white wash) */
+.play-bg-indie {
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(210, 216, 228, 0.22) 42%,
+      rgba(14, 18, 24, 0.78) 82%,
+      rgba(7, 9, 13, 1.00) 100%),
+    radial-gradient(1500px 1000px at 50% 10%,
+      rgba(255, 255, 255, 0.46),
+      rgba(255, 255, 255, 0.00) 70%),
+    radial-gradient(1400px 1100px at 12% 75%,
+      rgba(224, 229, 239, 0.36),
+      rgba(224, 229, 239, 0.00) 74%),
+    radial-gradient(1300px 1000px at 88% 78%,
+      rgba(175, 185, 204, 0.33),
+      rgba(175, 185, 204, 0.00) 76%);
+}
+
+@keyframes playDanceRainbowShift {
+  0% {
+    filter: hue-rotate(0deg) saturate(1);
+  }
+  50% {
+    filter: hue-rotate(24deg) saturate(1.08);
+  }
+  100% {
+    filter: hue-rotate(52deg) saturate(1.14);
+  }
+}
+
 /* =========================
    Opening overlay (page-only)
    ========================= */

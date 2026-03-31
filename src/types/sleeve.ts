@@ -1,6 +1,14 @@
 import type { Song, Rarity } from "./song";
 
-export type SleeveGenre = "Pop" | "Rock" | "Indie" | "Rap";
+export type SleeveGenre =
+  | "Pop"
+  | "Rock"
+  | "Indie"
+  | "Rap"
+  | "Country"
+  | "K-Pop"
+  | "Dance/Electronic"
+  | "Game Soundtrack";
 
 /**
  * Sleeve content is a song + drop metadata.

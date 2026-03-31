@@ -13,17 +13,96 @@ import sleevePop from "../pictures/Pictures/sleeve_pop.png";
 import sleevePopOpen from "../pictures/Pictures/sleeve_pop_open.png";
 import sleeveRock from "../pictures/Pictures/sleeve_rock.png";
 import sleeveRockOpen from "../pictures/Pictures/sleeve_rock_open.png";
+import sleeveRap from "../pictures/Pictures/sleeve_rap.png";
+import sleeveRapOpen from "../pictures/Pictures/sleeve_rap_open.png";
+import sleeveCountry from "../pictures/Pictures/sleeve_country.png";
+import sleeveCountryOpen from "../pictures/Pictures/sleeve_country_open.png";
+import sleeveKpop from "../pictures/Pictures/sleeve_kpop.png";
+import sleeveKpopOpen from "../pictures/Pictures/sleeve_kpop_open.png";
+import sleeveDanceElectronic from "../pictures/Pictures/sleeve_dance_electronic.png";
+import sleeveDanceElectronicOpen from "../pictures/Pictures/sleeve_dance_electronic_open.png";
+import sleeveGameSoundtrack from "../pictures/Pictures/sleeve_game_soundtrack.png";
+import sleeveGameSoundtrackOpen from "../pictures/Pictures/sleeve_game_soundtrack_open.png";
+import sleeveIndie from "../pictures/Pictures/sleeve_indie.png";
+import sleeveIndieOpen from "../pictures/Pictures/sleeve_indie_open.png";
 
 type OpenState = "idle" | "dropping" | "burst" | "rolling" | "revealed";
-type PlayGenre = "Pop" | "Rock" | "Rap";
+type PlayGenre = "Pop" | "Rock" | "Rap" | "Country" | "K-Pop" | "Dance/Electronic" | "Game Soundtrack" | "Indie";
 
-const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock", "Rap"];
+const PLAY_GENRES: PlayGenre[] = ["Pop", "Rock", "Rap", "Country", "K-Pop", "Dance/Electronic", "Game Soundtrack", "Indie"];
 
-const SLEEVE_ART: Record<PlayGenre, { closed: string; open: string }> = {
-  Pop: { closed: sleevePop, open: sleevePopOpen },
-  Rock: { closed: sleeveRock, open: sleeveRockOpen },
-  // TODO: add dedicated Rap sleeve art asset.
-  Rap: { closed: sleeveRock, open: sleeveRockOpen },
+const GENRE_THEME: Record<PlayGenre, {
+  slug: string;
+  bgClass: string;
+  art: { closed: string; open: string };
+  sleeveLabel: string;
+  panelRarityRgb: string;
+  panelSheenRgb: string;
+}> = {
+  Pop: {
+    slug: "pop",
+    bgClass: "play-bg-pop",
+    art: { closed: sleevePop, open: sleevePopOpen },
+    sleeveLabel: "Pop",
+    panelRarityRgb: "96 165 250",
+    panelSheenRgb: "120 185 255",
+  },
+  Rock: {
+    slug: "rock",
+    bgClass: "play-bg-rock",
+    art: { closed: sleeveRock, open: sleeveRockOpen },
+    sleeveLabel: "Rock",
+    panelRarityRgb: "255 110 160",
+    panelSheenRgb: "255 140 190",
+  },
+  Rap: {
+    slug: "rap",
+    bgClass: "play-bg-rap",
+    art: { closed: sleeveRap, open: sleeveRapOpen },
+    sleeveLabel: "Rap",
+    panelRarityRgb: "255 170 76",
+    panelSheenRgb: "255 170 76",
+  },
+  Country: {
+    slug: "country",
+    bgClass: "play-bg-country",
+    art: { closed: sleeveCountry, open: sleeveCountryOpen },
+    sleeveLabel: "Country",
+    panelRarityRgb: "110 220 140",
+    panelSheenRgb: "138 236 168",
+  },
+  "K-Pop": {
+    slug: "kpop",
+    bgClass: "play-bg-kpop",
+    art: { closed: sleeveKpop, open: sleeveKpopOpen },
+    sleeveLabel: "K-Pop",
+    panelRarityRgb: "255 120 215",
+    panelSheenRgb: "255 160 228",
+  },
+  "Dance/Electronic": {
+    slug: "dance-electronic",
+    bgClass: "play-bg-dance-electronic",
+    art: { closed: sleeveDanceElectronic, open: sleeveDanceElectronicOpen },
+    sleeveLabel: "EDM",
+    panelRarityRgb: "255 210 120",
+    panelSheenRgb: "255 255 160",
+  },
+  "Game Soundtrack": {
+    slug: "game-soundtrack",
+    bgClass: "play-bg-game-soundtrack",
+    art: { closed: sleeveGameSoundtrack, open: sleeveGameSoundtrackOpen },
+    sleeveLabel: "Game",
+    panelRarityRgb: "160 125 255",
+    panelSheenRgb: "186 160 255",
+  },
+  Indie: {
+    slug: "indie",
+    bgClass: "play-bg-indie",
+    art: { closed: sleeveIndie, open: sleeveIndieOpen },
+    sleeveLabel: "Indie",
+    panelRarityRgb: "240 240 240",
+    panelSheenRgb: "255 255 255",
+  },
 };
 
 // Must match CSS reel animation duration.
@@ -398,17 +477,21 @@ export function PlayPage() {
     );
   }
 
-  const art = SLEEVE_ART[genre];
+  const theme = GENRE_THEME[genre];
+  const art = theme.art;
   const previewA = current?.contents?.[0] ?? null;
   const previewB = current?.contents?.[1] ?? null;
   const activeSong = (reelTiles[reelFocusIndex] ?? rolled) ?? null;
 
   return (
-    <div className={["play-page h-full text-white", `is-${genre.toLowerCase()}`].join(" ")}>
+    <div className={["play-page h-full text-white", `is-${theme.slug}`].join(" ")}>
       <div className="play-bg" aria-hidden="true">
-        <div className={["play-bg-layer play-bg-pop", genre === "Pop" ? "is-active" : ""].join(" ")} />
-        <div className={["play-bg-layer play-bg-rock", genre === "Rock" ? "is-active" : ""].join(" ")} />
-        <div className={["play-bg-layer play-bg-rap", genre === "Rap" ? "is-active" : ""].join(" ")} />
+        {PLAY_GENRES.map((playGenre) => (
+          <div
+            key={playGenre}
+            className={["play-bg-layer", GENRE_THEME[playGenre].bgClass, genre === playGenre ? "is-active" : ""].join(" ")}
+          />
+        ))}
         <div className={["play-bg-intro", hasActivatedBackground ? "is-faded" : ""].join(" ")} />
       </div>
 
@@ -562,8 +645,8 @@ export function PlayPage() {
               ].join(" ")}
               style={
                 {
-                  ["--rarity-rgb" as const]: genre === "Pop" ? "96 165 250" : genre === "Rap" ? "255 170 76" : "255 110 160",
-                  ["--sheen-rgb" as const]: genre === "Pop" ? "120 185 255" : genre === "Rap" ? "255 170 76" : "255 140 190",
+                  ["--rarity-rgb" as const]: theme.panelRarityRgb,
+                  ["--sheen-rgb" as const]: theme.panelSheenRgb,
                 } as CSSProperties
               }
             >
@@ -601,7 +684,7 @@ export function PlayPage() {
                   </div>
 
                   <div className="play-sleeve-label text-5xl font-medium leading-none tracking-tight">
-                    <span className="play-sleeve-genre">{genre}</span>{" "}
+                    <span className="play-sleeve-genre">{theme.sleeveLabel}</span>{" "}
                     <span className="play-sleeve-word">Sleeve</span>
                   </div>
 

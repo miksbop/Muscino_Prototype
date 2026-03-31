@@ -663,6 +663,24 @@ def auth_logout(request):
     return Response({'ok': True})
 
 
+
+@api_view(['POST'])
+def auth_add_test_gold(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    profile = getattr(request.user, 'profile', None)
+    if profile is None:
+        return Response({'detail': 'profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    profile.wallet = (profile.wallet or 0) + 100
+    profile.save(update_fields=['wallet'])
+
+    serializer = UserSerializer(request.user)
+    return Response({'user': serializer.data})
+
+
+
 @api_view(['GET'])
 def market_listings(request):
     listings = (

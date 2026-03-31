@@ -10,7 +10,7 @@ const fallbackAvatar =
   "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
 
 export function TopNav() {
-  const { user, status, isSignedIn, signOut, walletIncreaseSignal } = useAuth();
+  const { user, status, isSignedIn, signOut, refreshUser, walletIncreaseSignal } = useAuth();
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [hoverIntensity, setHoverIntensity] = useState<Record<string, number>>(
     {},
@@ -206,6 +206,16 @@ export function TopNav() {
     setFriendRequests(data.incomingRequests);
   };
 
+    const handleWalletClick = async () => {
+    try {
+      await api.addTestGold();
+      await refreshUser();
+    } catch {
+      // no-op for temporary test helper
+    }
+  };
+
+
   return (
     <div className="relative z-50 w-full h-14 border-b border-white/10 bg-neutral-900">
       <div className="max-w-6xl mx-auto h-full px-6 flex items-center justify-between">
@@ -330,15 +340,18 @@ export function TopNav() {
                       +{walletPopAmount}
                     </span>
                   ) : null}
-                  <span
+                    <button
+                    type="button"
+                    onClick={() => void handleWalletClick()}
                     className={[
                       "wallet-balance-value",
                       walletPulse ? "wallet-balance-value--pulse" : "",
                       walletPeakGlow ? "wallet-balance-value--peak" : "",
                     ].join(" ")}
+                    title="Add 100 gold (test)"
                   >
                     {animatedWallet}
-                  </span>
+                  </button>
                 </span>
               </div>
 

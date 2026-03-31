@@ -96,6 +96,62 @@ LOCAL_NOTABLE_CATALOG: dict[str, list[dict[str, str | None]]] = {
         {"track_id": "local_rap_bodak_yellow", "title": "Bodak Yellow", "artist": "Cardi B", "cover_url": "https://upload.wikimedia.org/wikipedia/en/7/7f/Cardi_B_Invasion_of_Privacy.jpg"},
         {"track_id": "local_rap_still_dre", "title": "Still D.R.E.", "artist": "Dr. Dre, Snoop Dogg", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/01/Dr._Dre_-_2001.png"},
     ],
+    "Country": [
+        {"track_id": "local_country_tennessee_whiskey", "title": "Tennessee Whiskey", "artist": "Chris Stapleton", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/67/Chris_Stapleton_-_Traveller.png"},
+        {"track_id": "local_country_jolene", "title": "Jolene", "artist": "Dolly Parton", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/69/Jolene_%28Dolly_Parton_album%29.jpg"},
+        {"track_id": "local_country_friends_in_low_places", "title": "Friends in Low Places", "artist": "Garth Brooks", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/81/No_Fences.jpg"},
+        {"track_id": "local_country_the_gambler", "title": "The Gambler", "artist": "Kenny Rogers", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/5a/The_Gambler_%28album%29.jpg"},
+        {"track_id": "local_country_cruise", "title": "Cruise", "artist": "Florida Georgia Line", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/8b/Here%27s_to_the_Good_Times.jpg"},
+        {"track_id": "local_country_humble_and_kind", "title": "Humble and Kind", "artist": "Tim McGraw", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/fd/Damn_Country_Music.jpg"},
+        {"track_id": "local_country_die_a_happy_man", "title": "Die a Happy Man", "artist": "Thomas Rhett", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f2/Tangled_Up_album_cover.jpg"},
+        {"track_id": "local_country_wagon_wheel", "title": "Wagon Wheel", "artist": "Darius Rucker", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/1f/True_Believers_album_cover.jpg"},
+        {"track_id": "local_country_cowgirls", "title": "Cowgirls", "artist": "Morgan Wallen, ERNEST", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/6b/One_Thing_at_a_Time_%28album%29.jpg"},
+        {"track_id": "local_country_heart_like_a_truck", "title": "Heart Like a Truck", "artist": "Lainey Wilson", "cover_url": "https://upload.wikimedia.org/wikipedia/en/e/ef/Bell_Bottom_Country.png"},
+        {"track_id": "local_country_feathered_indians", "title": "Feathered Indians", "artist": "Tyler Childers", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/22/Purgatory_%28Tyler_Childers_album%29.png"},
+        {"track_id": "local_country_girl_crush", "title": "Girl Crush", "artist": "Little Big Town", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/85/Pain_Killer_album_cover.jpg"},
+    ],
+    "K-Pop": [
+        {"track_id": "local_kpop_dynamite", "title": "Dynamite", "artist": "BTS", "cover_url": "https://upload.wikimedia.org/wikipedia/en/7/76/BTS_-_Dynamite.png"},
+        {"track_id": "local_kpop_how_you_like_that", "title": "How You Like That", "artist": "BLACKPINK", "cover_url": "https://upload.wikimedia.org/wikipedia/en/7/77/Blackpink_-_How_You_Like_That.png"},
+        {"track_id": "local_kpop_love_dive", "title": "LOVE DIVE", "artist": "IVE", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/50/Ive_-_Love_Dive.png"},
+        {"track_id": "local_kpop_gods_menu", "title": "God's Menu", "artist": "Stray Kids", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f9/Stray_Kids_-_Go_Live.png"},
+        {"track_id": "local_kpop_attention", "title": "Attention", "artist": "NewJeans", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/00/NewJeans_-_New_Jeans.png"},
+        {"track_id": "local_kpop_love_shot", "title": "Love Shot", "artist": "EXO", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/05/Exo_-_Love_Shot.png"},
+        {"track_id": "local_kpop_maniac", "title": "MANIAC", "artist": "Stray Kids", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/fb/Stray_Kids_-_Oddinary.png"},
+        {"track_id": "local_kpop_likey", "title": "LIKEY", "artist": "TWICE", "cover_url": "https://upload.wikimedia.org/wikipedia/en/e/e8/Twicetagram.png"},
+        {"track_id": "local_kpop_fearless", "title": "FEARLESS", "artist": "LE SSERAFIM", "cover_url": "https://upload.wikimedia.org/wikipedia/en/e/eb/Le_Sserafim_-_Fearless.png"},
+        {"track_id": "local_kpop_queencard", "title": "Queencard", "artist": "(G)I-DLE", "cover_url": "https://upload.wikimedia.org/wikipedia/en/4/48/%28G%29I-dle_-_I_Feel.png"},
+        {"track_id": "local_kpop_love_119", "title": "Love 119", "artist": "RIIZE", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/67/Riize_-_Love_119.png"},
+        {"track_id": "local_kpop_drama", "title": "Drama", "artist": "aespa", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/89/Aespa_-_Drama.png"},
+    ],
+    "Dance/Electronic": [
+        {"track_id": "local_edm_titanium", "title": "Titanium", "artist": "David Guetta, Sia", "cover_url": "https://upload.wikimedia.org/wikipedia/en/0/0f/Nothing_But_the_Beat_2.0.png"},
+        {"track_id": "local_edm_levels", "title": "Levels", "artist": "Avicii", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/8f/Avicii_Levels_cover.png"},
+        {"track_id": "local_edm_one_more_time", "title": "One More Time", "artist": "Daft Punk", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/3c/Daft_Punk_-_Discovery.jpg"},
+        {"track_id": "local_edm_animals", "title": "Animals", "artist": "Martin Garrix", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/68/Martin_Garrix_-_Animals.png"},
+        {"track_id": "local_edm_clarity", "title": "Clarity", "artist": "Zedd, Foxes", "cover_url": "https://upload.wikimedia.org/wikipedia/en/1/10/Clarity_Zedd_album.png"},
+        {"track_id": "local_edm_strobe", "title": "Strobe", "artist": "deadmau5", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f6/For_Lack_of_a_Better_Name.jpg"},
+        {"track_id": "local_edm_language", "title": "Language", "artist": "Porter Robinson", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f1/Porter_Robinson_-_Language.png"},
+        {"track_id": "local_edm_shelter", "title": "Shelter", "artist": "Porter Robinson, Madeon", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/90/Porter_Robinson_and_Madeon_Shelter_art.jpg"},
+        {"track_id": "local_edm_midnight_city", "title": "Midnight City", "artist": "M83", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/5f/M83-Hurry_Up%2C_We%27re_Dreaming.jpg"},
+        {"track_id": "local_edm_lean_on", "title": "Lean On", "artist": "Major Lazer, DJ Snake, MØ", "cover_url": "https://upload.wikimedia.org/wikipedia/en/f/f8/Major_Lazer_-_Peace_Is_the_Mission.png"},
+        {"track_id": "local_edm_dont_you_worry_child", "title": "Don't You Worry Child", "artist": "Swedish House Mafia", "cover_url": "https://upload.wikimedia.org/wikipedia/en/e/e7/Until_Now_album_cover.jpg"},
+        {"track_id": "local_edm_scary_monsters", "title": "Scary Monsters and Nice Sprites", "artist": "Skrillex", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/80/Skrillex_-_Scary_Monsters_and_Nice_Sprites.png"},
+    ],
+    "Game Soundtrack": [
+        {"track_id": "local_game_megalovania", "title": "MEGALOVANIA", "artist": "Toby Fox", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/37/Undertale_soundtrack_cover.jpg"},
+        {"track_id": "local_game_sweden", "title": "Sweden", "artist": "C418", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/3a/Minecraft_-_Volume_Alpha_cover.jpg"},
+        {"track_id": "local_game_pigstep", "title": "Pigstep", "artist": "Lena Raine", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/5f/Minecraft_Nether_Update_cover_art.png"},
+        {"track_id": "local_game_open_your_heart", "title": "Open Your Heart", "artist": "SEGA SOUND TEAM", "cover_url": "https://upload.wikimedia.org/wikipedia/en/8/84/Sonic_Adventure_Original_Sound_Track.jpg"},
+        {"track_id": "local_game_hopes_and_dreams", "title": "Hopes and Dreams", "artist": "Toby Fox", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/37/Undertale_soundtrack_cover.jpg"},
+        {"track_id": "local_game_wet_hands", "title": "Wet Hands", "artist": "C418", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/3a/Minecraft_-_Volume_Alpha_cover.jpg"},
+        {"track_id": "local_game_resurrections", "title": "Resurrections", "artist": "Lena Raine", "cover_url": "https://upload.wikimedia.org/wikipedia/en/b/b1/Celeste_soundtrack_cover.png"},
+        {"track_id": "local_game_escape_from_the_city", "title": "Escape from the City", "artist": "SEGA SOUND TEAM", "cover_url": "https://upload.wikimedia.org/wikipedia/en/5/55/Sonic_Adventure_2_Multi-Dimensional_Original_Soundtrack_cover.jpg"},
+        {"track_id": "local_game_field_of_hopes_and_dreams", "title": "Field of Hopes and Dreams", "artist": "Toby Fox", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/31/Deltarune_Chapter_1_OST_cover.jpg"},
+        {"track_id": "local_game_subwoofer_lullaby", "title": "Subwoofer Lullaby", "artist": "C418", "cover_url": "https://upload.wikimedia.org/wikipedia/en/3/3a/Minecraft_-_Volume_Alpha_cover.jpg"},
+        {"track_id": "local_game_reach_for_the_stars", "title": "Reach for the Stars", "artist": "SEGA SOUND TEAM", "cover_url": "https://upload.wikimedia.org/wikipedia/en/6/67/Sonic_Colors_Original_Soundtrack_cover.jpg"},
+        {"track_id": "local_game_my_dearest_friends", "title": "My Dearest Friends", "artist": "Lena Raine", "cover_url": "https://upload.wikimedia.org/wikipedia/en/4/46/Chicory_soundtrack_cover.jpg"},
+    ],
     "Indie": [
         {"track_id": "local_indie_the_less_i_know_the_better", "title": "The Less I Know the Better", "artist": "Tame Impala", "cover_url": "https://upload.wikimedia.org/wikipedia/en/9/9a/Tame_Impala_-_Currents.png"},
         {"track_id": "local_indie_do_i_wanna_know", "title": "Do I Wanna Know?", "artist": "Arctic Monkeys", "cover_url": "https://upload.wikimedia.org/wikipedia/en/2/26/Arctic_Monkeys_-_AM.png"},
@@ -148,6 +204,42 @@ GENRE_CONFIG: dict[str, dict[str, Any]] = {
             "Eminem", "50 Cent", "Missy Elliott", "Busta Rhymes", "Common",
             "Kendrick Lamar", "J. Cole", "Drake", "Travis Scott", "Future",
             "Tyler, The Creator", "Pusha T", "Baby Keem", "Denzel Curry", "A$AP Rocky",
+        ],
+    },
+        "Country": {
+        "seed_artists": [
+            "Morgan Wallen", "Luke Combs", "Zach Bryan", "Chris Stapleton", "Lainey Wilson",
+            "Dolly Parton", "Johnny Cash", "Kacey Musgraves", "Kenny Chesney", "Garth Brooks",
+            "Carrie Underwood", "Shania Twain", "Tim McGraw", "Keith Urban", "Miranda Lambert",
+            "Alan Jackson", "George Strait", "Brad Paisley", "Blake Shelton", "Maren Morris",
+            "Old Dominion", "Thomas Rhett", "Kelsea Ballerini", "Dierks Bentley", "Tyler Childers",
+        ],
+    },
+    "K-Pop": {
+        "seed_artists": [
+            "BTS", "BLACKPINK", "TWICE", "Stray Kids", "SEVENTEEN",
+            "NewJeans", "aespa", "LE SSERAFIM", "IVE", "EXO",
+            "NCT 127", "ENHYPEN", "ITZY", "(G)I-DLE", "Red Velvet",
+            "ATEEZ", "TXT", "SHINee", "BIGBANG", "Girls' Generation",
+            "RIIZE", "BABYMONSTER", "ILLIT", "KISS OF LIFE", "BOYNEXTDOOR",
+        ],
+    },
+    "Dance/Electronic": {
+        "seed_artists": [
+            "David Guetta", "Calvin Harris", "Avicii", "Skrillex", "Martin Garrix",
+            "Zedd", "Kygo", "Marshmello", "Tiësto", "deadmau5",
+            "Fred again..", "Porter Robinson", "Madeon", "Flume", "Disclosure",
+            "Daft Punk", "The Chainsmokers", "Swedish House Mafia", "Alesso", "Kaskade",
+            "Diplo", "Major Lazer", "RL Grime", "NERO", "ODESZA",
+        ],
+    },
+    "Game Soundtrack": {
+        "seed_artists": [
+            "Toby Fox", "C418", "Lena Raine", "SEGA SOUND TEAM", "Koji Kondo",
+            "Yoko Shimomura", "Nobuo Uematsu", "Yasunori Mitsuda", "Gareth Coker", "Darren Korb",
+            "Mick Gordon", "Grant Kirkhope", "Shoji Meguro", "Masayoshi Soken", "Disasterpeace",
+            "Marcin Przybyłowicz", "Yuka Kitamura", "Jun Senoue", "Motoi Sakuraba", "Yasunori Nishiki",
+            "Kazuma Jinnouchi", "Takeharu Ishimoto", "Akira Yamaoka", "Hideki Naganuma", "Austin Wintory",
         ],
     },
     "Indie": {
@@ -596,9 +688,16 @@ def upsert_sleeve_entries(genre: str, chosen: list[tuple[ScoredCandidate, str]])
             cost=20,
             refreshed_weekly=True,
         )
-    elif not sleeve.refreshed_weekly:
-        sleeve.refreshed_weekly = True
-        sleeve.save(update_fields=["refreshed_weekly"])
+    else:
+        update_fields: list[str] = []
+        if sleeve.cost != 20:
+            sleeve.cost = 20
+            update_fields.append("cost")
+        if not sleeve.refreshed_weekly:
+            sleeve.refreshed_weekly = True
+            update_fields.append("refreshed_weekly")
+        if update_fields:
+            sleeve.save(update_fields=update_fields)
 
     SleeveSong.objects.filter(sleeve=sleeve).delete()
 
@@ -655,7 +754,11 @@ def refresh_genre_sleeve(token: str | None, genre: str, limit: int, market: str,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh weekly sleeves from Spotify")
-    parser.add_argument("--genres", nargs="+", default=["Pop", "Rock", "Rap", "Indie"])
+    parser.add_argument(
+        "--genres",
+        nargs="+",
+        default=["Pop", "Rock", "Rap", "Country", "K-Pop", "Dance/Electronic", "Game Soundtrack", "Indie"],
+    )
     parser.add_argument("--limit", type=int, default=30, help="per-source search limit")
     parser.add_argument("--market", default="US")
     parser.add_argument(

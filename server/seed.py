@@ -171,7 +171,7 @@ MOCK_SLEEVES = [
         'id': 'sleeve_rap_01',
         'name': 'Rap Sleeve',
         'genre': 'Rap',
-        'cost': 24,
+        'cost': 20,
         'refreshed_weekly': True,
         'contents': [
             {
@@ -260,7 +260,7 @@ MOCK_SLEEVES = [
         'id': 'sleeve_indie_01',
         'name': 'Indie Sleeve',
         'genre': 'Indie',
-        'cost': 22,
+        'cost': 20,
         'refreshed_weekly': True,
         'contents': [
             {

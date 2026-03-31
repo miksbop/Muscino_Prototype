@@ -56,7 +56,7 @@ export const MOCK_SLEEVES: Sleeve[] = [
     id: "sleeve_indie_01",
     name: "Indie Sleeve",
     genre: "Indie",
-    cost: 22,
+    cost: 20,
     refreshedWeekly: true,
     contents: [
       { id: "song_indie_somebody_else", title: "Somebody Else", artist: "The 1975", coverUrl: "https://upload.wikimedia.org/wikipedia/en/9/9b/The_1975_-_I_Like_It_When_You_Sleep%2C_for_You_Are_So_Beautiful_yet_So_Unaware_of_It.png", genre: "Indie", rarity: "Legendary" },
@@ -81,7 +81,7 @@ export const MOCK_SLEEVES: Sleeve[] = [
     id: "sleeve_rap_01",
     name: "Rap Sleeve",
     genre: "Rap",
-    cost: 24,
+    cost: 20,
     refreshedWeekly: true,
     contents: [
       { id: "song_rap_lose_yourself", title: "Lose Yourself", artist: "Eminem", coverUrl: "https://upload.wikimedia.org/wikipedia/en/a/ad/8MileSoundtrack.jpg", genre: "Rap", rarity: "Legendary" },

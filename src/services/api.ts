@@ -96,7 +96,15 @@ export const api = {
     });
   },
 
-    async getMarketListings(): Promise<MarketListing[]> {
+  async addTestGold(): Promise<AuthUser> {
+    const data = await fetchJson<{ user: AuthUser }>("/api/auth/add-test-gold/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    return data.user;
+  },
+
+  async getMarketListings(): Promise<MarketListing[]> {
     try {
       return await fetchJson<MarketListing[]>("/api/market/listings/");
     } catch {
