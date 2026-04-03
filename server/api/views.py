@@ -23,6 +23,7 @@ from .serializers import (
     FriendRequestSerializer,
 )
 from .spotify import SpotifyClient, hydrate_songs_from_spotify
+from .preview import search_track_genre
 
 DAILY_LOGIN_BONUS = 100
 MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024
@@ -121,11 +122,13 @@ def _roll_rarity_from_inputs(input_rarities: list[str]) -> str:
 
 
 def _upsert_song_from_spotify_track(track) -> Song:
+    apple_genre = search_track_genre(track.title or "", track.artist)
+    resolved_genre = apple_genre or 'Unknown'
     defaults = {
         'title': track.title or track.track_id,
         'artist': track.artist or 'Unknown Artist',
         'cover_url': track.cover_url,
-        'genre': 'Unknown',
+        'genre': resolved_genre,
         'spotify_track_id': track.track_id,
         'spotify_url': track.spotify_url,
     }
@@ -138,6 +141,8 @@ def _upsert_song_from_spotify_track(track) -> Song:
     if not created:
         changed_fields = []
         for field, value in defaults.items():
+            if field == 'genre' and value == 'Unknown':
+                continue
             if value and getattr(song, field) != value:
                 setattr(song, field, value)
                 changed_fields.append(field)

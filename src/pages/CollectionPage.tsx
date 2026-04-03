@@ -8,7 +8,7 @@ import { MarqueeText } from "../components/MarqueeText";
 import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useAuth } from "../context/useAuth";
-import { playSongPreview, stopSongPreview } from "../services/songPreview";
+import { playSongPreview, stopSongPreview, subscribeSongPreviewLevel } from "../services/songPreview";
 
 type RerollFxState = "idle" | "dropping" | "merging" | "exploding" | "revealed";
 
@@ -39,6 +39,8 @@ export function CollectionPage() {
   const [rerollFxState, setRerollFxState] = useState<RerollFxState>("idle");
   const [rerollFxInputs, setRerollFxInputs] = useState<OwnedSong[]>([]);
   const [rerollResultSong, setRerollResultSong] = useState<OwnedSong | null>(null);
+  const [previewReactiveLevel, setPreviewReactiveLevel] = useState(0);
+  const [hasPreviewReactiveSignal, setHasPreviewReactiveSignal] = useState(false);
   const rerollFxTimersRef = useRef<number[]>([]);
 
   const clearRerollFxTimers = () => {
@@ -66,6 +68,17 @@ export function CollectionPage() {
       cancelled = true;
       clearRerollFxTimers();
       stopSongPreview();
+    };
+  }, []);
+
+    useEffect(() => {
+    const unsubscribe = subscribeSongPreviewLevel((level, hasSignal) => {
+      setPreviewReactiveLevel(level);
+      setHasPreviewReactiveSignal(hasSignal);
+    });
+
+    return () => {
+      unsubscribe();
     };
   }, []);
 
@@ -304,6 +317,15 @@ export function CollectionPage() {
                     key={song.id}
                     song={song}
                     selected={selected?.id === song.id}
+                    className={selected?.id === song.id ? `collection-song-card-reactive ${hasPreviewReactiveSignal ? "is-audio-reactive" : ""}` : ""}
+                    style={
+                      selected?.id === song.id
+                        ? ({
+                            ["--rarity-rgb" as const]: rarityRgb(song.rarity),
+                            ["--audio-reactive-level" as const]: previewReactiveLevel.toFixed(3),
+                          } as CSSProperties)
+                        : undefined
+                    }
                     onSelect={() => {
                       setSelected(song);
                       void playSongPreview(song);

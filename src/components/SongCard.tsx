@@ -98,7 +98,7 @@ export function SongCard({ song, selected = false, onSelect, className, style, h
     >
       {song.rarity === "Legendary" && selected && <div className="muscino-legendary-sheen" />}
 
-      <div className="relative z-10">
+      <div className="relative z-10 song-card-content">
         {hasCover ? (
           <img
             src={song.coverUrl}
