@@ -4,6 +4,7 @@ import GlassPanel from "../components/GlassPanel";
 import { SongCard } from "../components/SongCard";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { api } from "../services/api";
+import { playSongPreview, stopSongPreview } from "../services/songPreview";
 import { useAuth } from "../context/useAuth";
 import type { OwnedSong } from "../types/song";
 import type { Sleeve } from "../types/sleeve";
@@ -239,6 +240,7 @@ export function PlayPage() {
       timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       timersRef.current = [];
       stopReelSyncLoop();
+      stopSongPreview();
     };
   }, [stopReelSyncLoop]);
 
@@ -302,8 +304,9 @@ export function PlayPage() {
     return uniqueArtists.length ? uniqueArtists : ["No artists yet"];
   }, [current]);
 
-  const canPrev = genreIndex > 0;
-  const canNext = genreIndex < PLAY_GENRES.length - 1;
+  const canPrev = PLAY_GENRES.length > 1;
+  const canNext = PLAY_GENRES.length > 1;
+  const activeSong = (reelTiles[reelFocusIndex] ?? rolled) ?? null;
   const dropChanceBySongId = useMemo(() => {
     const songs = current?.contents ?? [];
     if (!songs.length) return new Map<string, number>();
@@ -380,12 +383,12 @@ export function PlayPage() {
 
   function goPrev() {
     if (!canPrev) return;
-    setGenreIndex((index) => index - 1);
+    setGenreIndex((index) => (index - 1 + PLAY_GENRES.length) % PLAY_GENRES.length);
   }
 
   function goNext() {
     if (!canNext) return;
-    setGenreIndex((index) => index + 1);
+    setGenreIndex((index) => (index + 1) % PLAY_GENRES.length);
   }
 
   useEffect(() => {
@@ -403,6 +406,7 @@ export function PlayPage() {
     timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current = [];
     stopReelSyncLoop();
+    stopSongPreview();
 
     setOverlayOpen(false);
     setOpenState("idle");
@@ -415,6 +419,16 @@ export function PlayPage() {
     setReelTick((tick) => tick + 1);
     setReelFocusIndex(0);
   }
+
+  
+  useEffect(() => {
+    if (openState !== "revealed" || !activeSong) {
+      stopSongPreview();
+      return;
+    }
+
+    void playSongPreview(activeSong);
+  }, [activeSong, openState]);
 
   async function handleOpen() {
     if (!current) return;
@@ -481,7 +495,6 @@ export function PlayPage() {
   const art = theme.art;
   const previewA = current?.contents?.[0] ?? null;
   const previewB = current?.contents?.[1] ?? null;
-  const activeSong = (reelTiles[reelFocusIndex] ?? rolled) ?? null;
 
   return (
     <div className={["play-page h-full text-white", `is-${theme.slug}`].join(" ")}>

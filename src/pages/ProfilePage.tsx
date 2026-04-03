@@ -6,6 +6,7 @@ import { LoadingSpinner } from "../components/LoadingSpinner";
 import { SafeImage } from "../components/SafeImage";
 import { useAuth } from "../context/useAuth";
 import { api, type ProfileBackgroundOption } from "../services/api";
+import { playSongPreview, stopSongPreview } from "../services/songPreview";
 import { rarityRgb } from "../types/rarity";
 import type { ProfileView } from "../types/profile";
 
@@ -14,6 +15,8 @@ const BASE_PROFILE_HEIGHT = 860;
 const VIEWPORT_GUTTER_X = 112;
 const VIEWPORT_GUTTER_Y = 112;
 const MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024;
+const PROFILE_PREVIEW_VOLUME = 0.3;
+const PROFILE_PREVIEW_FADE_IN_MS = 1600;
 
 function hexToRgb(hexColor: string): { r: number; g: number; b: number } {
   const normalized = hexColor.replace("#", "").slice(0, 6);
@@ -80,6 +83,24 @@ export function ProfilePage() {
       cancelled = true;
     };
   }, [username]);
+
+      useEffect(() => {
+    if (!profile?.favoriteSong) {
+      stopSongPreview();
+      return;
+    }
+
+    void playSongPreview(profile.favoriteSong, {
+      fadeInMs: PROFILE_PREVIEW_FADE_IN_MS,
+      volume: PROFILE_PREVIEW_VOLUME,
+    });
+
+    return () => {
+      stopSongPreview();
+    };
+  }, [profile?.favoriteSong]);
+
+
 
   const isOwner = useMemo(
     () => !!profile && !!user && user.username === profile.username,

@@ -8,6 +8,7 @@ import { MarqueeText } from "../components/MarqueeText";
 import { rarityRgb, rarityTextClass } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useAuth } from "../context/useAuth";
+import { playSongPreview, stopSongPreview } from "../services/songPreview";
 
 type RerollFxState = "idle" | "dropping" | "merging" | "exploding" | "revealed";
 
@@ -64,6 +65,7 @@ export function CollectionPage() {
     return () => {
       cancelled = true;
       clearRerollFxTimers();
+      stopSongPreview();
     };
   }, []);
 
@@ -302,7 +304,10 @@ export function CollectionPage() {
                     key={song.id}
                     song={song}
                     selected={selected?.id === song.id}
-                    onSelect={() => setSelected(song)}
+                    onSelect={() => {
+                      setSelected(song);
+                      void playSongPreview(song);
+                    }}
                   />
                 ))}
 
