@@ -513,7 +513,13 @@ export function PlayPage() {
           <div className="muscino-opening-backdrop" onClick={closeOverlay} />
 
           <div className="muscino-opening-center">
-            <GlassPanel className="muscino-opening-panel">
+            <GlassPanel
+              className={[
+                "muscino-opening-panel",
+                openState === "revealed" ? "is-featured-revealed" : "",
+              ].join(" ")}
+              style={{ ["--rarity-rgb" as const]: rarityRgb(activeSong?.rarity ?? "Common") } as CSSProperties}
+            >
               {openError ? (
                 <div className="flex flex-col items-center gap-4 py-6">
                   <div className="text-3xl font-medium text-white/90">Couldn’t open</div>
@@ -542,6 +548,9 @@ export function PlayPage() {
                         )}
 
                         <div className={["muscino-opening-reveal-stage", openState === "revealed" ? "is-revealed" : ""].join(" ")}>
+                            {openState === "revealed" && (
+                            <div className="muscino-opening-featured-reactive-bg" aria-hidden="true" />
+                          )}
                           <div className="muscino-reel" aria-hidden="true">
                             <div className="muscino-reel-window">
                               <div className="muscino-reel-marker" />

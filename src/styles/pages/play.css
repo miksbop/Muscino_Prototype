@@ -500,10 +500,10 @@
 }
 
 .muscino-opening-sequence.is-revealed .muscino-reel {
-  opacity: 0.22;
+  opacity: 0;
   transform: scale(0.96);
   filter: saturate(0.8);
-  transition: opacity 360ms ease, transform 360ms ease, filter 360ms ease;
+  transition: opacity 420ms ease, transform 420ms ease, filter 420ms ease;
 }
 
 .muscino-opening-reveal-stage {
@@ -516,7 +516,7 @@
 
 .muscino-opening-reveal-stage.is-revealed .muscino-reel {
   transform: translateY(102px) scale(1);
-  opacity: 0.26;
+  opacity: 0;
 }
 
 .muscino-opening-current {
