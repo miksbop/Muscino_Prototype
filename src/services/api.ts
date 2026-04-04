@@ -13,6 +13,13 @@ export type RerollInventoryResponse = {
   rolledRarity: Rarity;
 };
 
+export type SpotifyArtistSearchResult = {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  spotifyUrl: string | null;
+};
+
 import type { Sleeve } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
 import type { ProfileView } from "../types/profile";
@@ -133,7 +140,7 @@ export const api = {
     return await fetchJson<OwnedSong[]>(`/api/inventory/?owner=${encodeURIComponent(username)}`);
   },
 
-    async rerollInventorySongs(input: { ownedSongIds: number[]; artistKeyword: string }): Promise<RerollInventoryResponse> {
+  async rerollInventorySongs(input: { ownedSongIds: number[]; artistKeyword: string; artistId?: string }): Promise<RerollInventoryResponse> {
     return await fetchJson<RerollInventoryResponse>("/api/inventory/reroll/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -141,6 +148,14 @@ export const api = {
     });
   },
 
+  async searchSpotifyArtists(keyword: string): Promise<SpotifyArtistSearchResult[]> {
+    const query = keyword.trim();
+    if (query.length < 2) return [];
+    const data = await fetchJson<{ artists: SpotifyArtistSearchResult[] }>(`/api/spotify/artists/?q=${encodeURIComponent(query)}`);
+    return data.artists ?? [];
+  },
+
+  
   async getProfile(username: string): Promise<ProfileView> {
     return await fetchJson<ProfileView>(`/api/profiles/${encodeURIComponent(username)}/`);
   },

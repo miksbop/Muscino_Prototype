@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import type { OwnedSong } from "../types/song";
 import { api } from "../services/api";
+import type { SpotifyArtistSearchResult } from "../services/api";
 import GlassPanel from "../components/GlassPanel";
 import { SongCard } from "../components/SongCard";
 import { MarqueeText } from "../components/MarqueeText";
-import { rarityRgb, rarityTextClass } from "../types/rarity";
+import { rarityTextClass, rarityRgb } from "../types/rarity";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { useAuth } from "../context/useAuth";
 import { playSongPreview, stopSongPreview, subscribeSongPreviewLevel } from "../services/songPreview";
@@ -33,7 +34,10 @@ export function CollectionPage() {
   const [listing, setListing] = useState(false);
   const [rerollOpen, setRerollOpen] = useState(false);
   const [rerollSelection, setRerollSelection] = useState<string[]>([]);
-  const [artistKeyword, setArtistKeyword] = useState("");
+  const [artistQuery, setArtistQuery] = useState("");
+  const [artistOptions, setArtistOptions] = useState<SpotifyArtistSearchResult[]>([]);
+  const [artistSearchLoading, setArtistSearchLoading] = useState(false);
+  const [selectedArtist, setSelectedArtist] = useState<SpotifyArtistSearchResult | null>(null);
   const [rerolling, setRerolling] = useState(false);
   const [rerollFxOpen, setRerollFxOpen] = useState(false);
   const [rerollFxState, setRerollFxState] = useState<RerollFxState>("idle");
@@ -42,6 +46,10 @@ export function CollectionPage() {
   const [previewReactiveLevel, setPreviewReactiveLevel] = useState(0);
   const [hasPreviewReactiveSignal, setHasPreviewReactiveSignal] = useState(false);
   const rerollFxTimersRef = useRef<number[]>([]);
+  const artistSearchRequestIdRef = useRef(0);
+  const [artistHintPulse, setArtistHintPulse] = useState(false);
+  const [songHintPulse, setSongHintPulse] = useState(false);
+  const [hoveredRerollSongId, setHoveredRerollSongId] = useState<string | null>(null);
 
   const clearRerollFxTimers = () => {
     rerollFxTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -146,13 +154,20 @@ export function CollectionPage() {
 
   const toggleRerollSong = (ownedSongId: string) => {
     setRerollSelection((current) => {
+      let nextSelection: string[];
       if (current.includes(ownedSongId)) {
-        return current.filter((id) => id !== ownedSongId);
+        nextSelection = current.filter((id) => id !== ownedSongId);
+      } else if (current.length >= 3) {
+        nextSelection = current;
+      } else {
+        nextSelection = [...current, ownedSongId];
       }
-      if (current.length >= 3) {
-        return current;
+
+      if (nextSelection.length === 3 && !selectedArtist) {
+        setArtistHintPulse(true);
+        window.setTimeout(() => setArtistHintPulse(false), 820);
       }
-      return [...current, ownedSongId];
+      return nextSelection;
     });
   };
 
@@ -162,8 +177,8 @@ export function CollectionPage() {
       return;
     }
 
-    if (!artistKeyword.trim()) {
-      window.alert("Enter an artist keyword before rerolling.");
+    if (!selectedArtist) {
+      window.alert("Select an artist from the Spotify dropdown before rerolling.");
       return;
     }
 
@@ -178,7 +193,8 @@ export function CollectionPage() {
       const selectedInputs = songs.filter((song) => parsedOwnedSongIds.includes(Number(song.id))).slice(0, 3);
       const result = await api.rerollInventorySongs({
         ownedSongIds: parsedOwnedSongIds,
-        artistKeyword: artistKeyword.trim(),
+        artistKeyword: selectedArtist.name.trim(),
+        artistId: selectedArtist.id,
       });
 
       const refreshedSongs = await api.getInventory();
@@ -187,7 +203,9 @@ export function CollectionPage() {
       setSelected(newlyCreated);
       setRerollOpen(false);
       setRerollSelection([]);
-      setArtistKeyword("");
+      setArtistQuery("");
+      setArtistOptions([]);
+      setSelectedArtist(null);
       playRerollFx(selectedInputs, newlyCreated);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to reroll songs.";
@@ -197,28 +215,37 @@ export function CollectionPage() {
     }
   };
 
-  const previewRerollAnimation = () => {
-    if (rerollSelection.length !== 3) {
-      window.alert("Select exactly 3 songs to preview the reroll animation.");
+  useEffect(() => {
+    const query = artistQuery.trim();
+    if (query.length < 2) {
+      artistSearchRequestIdRef.current += 1;
+      setArtistOptions([]);
+      setArtistSearchLoading(false);
       return;
     }
 
-    const selectedInputs = songs.filter((song) => rerollSelection.includes(String(song.id))).slice(0, 3);
-    if (selectedInputs.length !== 3) {
-      window.alert("Unable to build preview from selection.");
-      return;
-    }
+    const timerId = window.setTimeout(async () => {
+      const requestId = ++artistSearchRequestIdRef.current;
+      try {
+        setArtistSearchLoading(true);
+        const artists = await api.searchSpotifyArtists(query);
+        if (requestId !== artistSearchRequestIdRef.current) return;
+        setArtistOptions(artists);
+      } catch {
+        if (requestId !== artistSearchRequestIdRef.current) return;
+        setArtistOptions([]);
+      } finally {
+        if (requestId !== artistSearchRequestIdRef.current) return;
+        setArtistSearchLoading(false);
+      }
+    }, 250);
 
-    const unselectedPool = songs.filter((song) => !rerollSelection.includes(String(song.id)));
-    const previewSource = unselectedPool[Math.floor(Math.random() * unselectedPool.length)] ?? selectedInputs[0];
-    const previewSong: OwnedSong = {
-      ...previewSource,
-      rarity: previewSource.rarity,
+    return () => {
+      window.clearTimeout(timerId);
     };
+  }, [artistQuery]);
 
-    setRerollOpen(false);
-    playRerollFx(selectedInputs, previewSong);
-  };
+  const rerollReady = Boolean(selectedArtist) && rerollSelection.length === 3;
 
   return (
     <div className="h-full bg-neutral-950 text-white">
@@ -360,12 +387,12 @@ export function CollectionPage() {
       {rerollOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm p-4 md:p-8">
           <div className="mx-auto max-w-3xl h-full">
-            <GlassPanel className="h-full p-5 flex flex-col gap-4 border border-white/20">
+            <GlassPanel className="collection-reroll-pop-in h-full p-5 flex flex-col gap-4 border border-white/20">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold">Song Reroll</h2>
                   <p className="text-sm text-neutral-300">
-                    Pick 3 songs, then search an artist keyword. Higher rarity inputs improve your rarity odds.
+                    Exchange any 3 songs to recieve one from your desired artist!
                   </p>
                 </div>
                 <button
@@ -379,52 +406,125 @@ export function CollectionPage() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  value={artistKeyword}
-                  onChange={(e) => setArtistKeyword(e.target.value)}
-                  placeholder="Artist keyword (e.g. Drake, Paramore, Skrillex)"
-                  className="flex-1 px-3 py-2 rounded-lg bg-black/40 border border-white/15 outline-none focus:border-white/40"
-                  disabled={rerolling}
-                />
+              <div className="relative flex items-center gap-3">
+                <div className={`relative flex-1 rounded-xl transition-all duration-300 ${artistHintPulse ? "ring-2 ring-indigo-300/90 shadow-[0_0_24px_rgba(129,140,248,0.55)]" : ""}`}>
+                  <input
+                    value={artistQuery}
+                    onChange={(e) => {
+                      setArtistQuery(e.target.value);
+                      setSelectedArtist(null);
+                    }}
+                    placeholder="Search artists (e.g. Drake, Paramore, Skrillex)"
+                    className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/15 outline-none focus:border-white/40"
+                    disabled={rerolling}
+                  />
+                  {(artistSearchLoading || artistQuery.trim().length >= 2) && !selectedArtist && (
+                    <div className="absolute z-10 mt-2 w-full rounded-lg border border-white/20 bg-neutral-950/95 shadow-2xl overflow-hidden">
+                      {artistSearchLoading ? (
+                        <div className="px-3 py-2 text-sm text-neutral-300">Searching Spotify artists…</div>
+                      ) : artistOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-neutral-400">No artists found.</div>
+                      ) : (
+                        <div className="max-h-56 overflow-y-auto muscino-scroll">
+                          {artistOptions.map((artist) => (
+                            <button
+                              key={artist.id}
+                              type="button"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-white/10 flex items-center justify-between gap-3 border-b border-white/5 last:border-b-0"
+                              onClick={() => {
+                                setSelectedArtist(artist);
+                                setArtistQuery(artist.name);
+                                setArtistOptions([]);
+                                if (rerollSelection.length < 3) {
+                                  setSongHintPulse(true);
+                                  window.setTimeout(() => setSongHintPulse(false), 820);
+                                }
+                              }}
+                            >
+                              <span className="truncate">{artist.name}</span>
+                              <span className="w-8 h-8 shrink-0 rounded-sm overflow-hidden border border-white/15 bg-white/5">
+                                {artist.imageUrl ? (
+                                  <img src={artist.imageUrl} alt="" className="w-full h-full object-cover" />
+                                ) : null}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded-lg bg-indigo-500/80 border border-indigo-300/40 text-sm font-medium disabled:opacity-60"
+                  className={[
+                    "px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-300 disabled:opacity-60",
+                    rerollReady
+                      ? "collection-reroll-ready-btn"
+                      : "bg-indigo-500/80 border border-indigo-300/40",
+                  ].join(" ")}
                   onClick={() => {
                     void submitReroll();
                   }}
-                  disabled={rerolling || rerollSelection.length !== 3 || !artistKeyword.trim()}
+                  disabled={rerolling || rerollSelection.length !== 3 || !selectedArtist}
                 >
-                  {rerolling ? "Rerolling..." : "Exchange 3 Songs"}
-                </button>
-                <button
-                  type="button"
-                  className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-sm font-medium disabled:opacity-60"
-                  onClick={previewRerollAnimation}
-                  disabled={rerolling || rerollSelection.length !== 3}
-                  title="Preview animation only (does not call backend or consume songs)"
-                >
-                  Preview Animation
+                  {rerolling ? "Rerolling..." : rerollReady ? "REROLL!" : "Exchange 3 Songs"}
                 </button>
               </div>
+
+              {selectedArtist ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-300/45 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+                  {selectedArtist.imageUrl ? (
+                    <img src={selectedArtist.imageUrl} alt="" className="w-7 h-7 rounded-sm object-cover border border-emerald-200/45" />
+                  ) : (
+                    <span className="w-7 h-7 rounded-sm bg-emerald-400/20 border border-emerald-200/45" />
+                  )}
+                  <span>
+                    <strong>Artist locked in:</strong> {selectedArtist.name}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-xs text-neutral-400">Select one artist from the dropdown to enable reroll.</div>
+              )}
 
               <div className="text-xs text-neutral-400">
                 Selected: {rerollSelection.length}/3
               </div>
 
-              <div className="overflow-y-auto pr-1 muscino-scroll grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div
+                className={`overflow-y-auto pr-1 muscino-scroll grid grid-cols-1 md:grid-cols-2 gap-2 rounded-xl transition-all duration-300 ${songHintPulse ? "ring-2 ring-indigo-300/90 shadow-[0_0_24px_rgba(129,140,248,0.55)]" : ""}`}
+              >
                 {sortedSongs.map((song) => {
                   const isChecked = rerollSelection.includes(String(song.id));
+                  const isHovered = hoveredRerollSongId === String(song.id);
+                  const rarityColor = rarityRgb(song.rarity);
+                  const selectionStyle: CSSProperties = isChecked
+                    ? {
+                        borderColor: `rgb(${rarityColor} / 0.7)`,
+                        background: `linear-gradient(135deg, rgb(${rarityColor} / 0.2), rgb(8 8 12 / 0.58))`,
+                        boxShadow: `0 0 16px rgb(${rarityColor} / 0.2)`,
+                      }
+                    : isHovered
+                      ? {
+                          borderColor: `rgb(${rarityColor} / 0.5)`,
+                          background: `linear-gradient(135deg, rgb(${rarityColor} / 0.12), rgb(8 8 12 / 0.48))`,
+                          boxShadow: `0 0 12px rgb(${rarityColor} / 0.14)`,
+                        }
+                      : {};
                   return (
                     <button
                       key={`reroll-${song.id}`}
                       type="button"
                       onClick={() => toggleRerollSong(String(song.id))}
+                      onMouseEnter={() => setHoveredRerollSongId(String(song.id))}
+                      onMouseLeave={() => setHoveredRerollSongId(null)}
                       disabled={rerolling}
+                      style={selectionStyle}
                       className={`w-full text-left p-2 rounded-xl border transition ${
                         isChecked
-                          ? "border-indigo-300/80 bg-indigo-500/20"
-                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                          ? "border-white/40"
+                          : isHovered
+                            ? "border-white/30"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">

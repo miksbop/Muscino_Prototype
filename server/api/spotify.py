@@ -7,11 +7,13 @@ from dataclasses import dataclass
 from typing import Any
 from urllib import error, parse, request
 
+
 from django.core.cache import cache
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACKS_URL = "https://api.spotify.com/v1/tracks"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
+SPOTIFY_ARTIST_TOP_TRACKS_URL_TEMPLATE = "https://api.spotify.com/v1/artists/{artist_id}/top-tracks"
 TOKEN_CACHE_KEY = "spotify:client-token"
 THROTTLE_UNTIL_CACHE_KEY = "spotify:throttle-until"
 THROTTLE_LAST_PROBE_CACHE_KEY = "spotify:throttle-last-probe"
@@ -30,6 +32,13 @@ class SpotifyTrackData:
     cover_url: str | None
     spotify_url: str | None
 
+
+@dataclass
+class SpotifyArtistData:
+    artist_id: str
+    name: str
+    image_url: str | None
+    spotify_url: str | None
 
 class SpotifyClient:
     def __init__(self) -> None:
@@ -220,6 +229,59 @@ class SpotifyClient:
             if parsed_track:
                 parsed_tracks.append(parsed_track)
         return parsed_tracks
+    
+    def search_artists(self, keyword: str, limit: int = 8) -> list[SpotifyArtistData]:
+        self._clear_last_error()
+        token = self.access_token()
+        cleaned_keyword = keyword.strip()
+        if not token or not cleaned_keyword:
+            return []
+
+        safe_limit = max(1, min(limit, 20))
+        params = parse.urlencode({"q": cleaned_keyword, "type": "artist", "limit": safe_limit})
+        req = request.Request(
+            f"{SPOTIFY_SEARCH_URL}?{params}",
+            headers={"Authorization": f"Bearer {token}"},
+            method="GET",
+        )
+        payload = self._request_json(req, timeout=20)
+        if not payload:
+            return []
+
+        artists = payload.get("artists", {}).get("items", [])
+        parsed_artists: list[SpotifyArtistData] = []
+        for artist in artists:
+            parsed_artist = _parse_artist_payload(artist)
+            if parsed_artist:
+                parsed_artists.append(parsed_artist)
+        return parsed_artists
+
+    def get_artist_top_tracks(self, artist_id: str, market: str = "US", limit: int = 10) -> list[SpotifyTrackData]:
+        self._clear_last_error()
+        token = self.access_token()
+        cleaned_artist_id = artist_id.strip()
+        if not token or not cleaned_artist_id:
+            return []
+
+        params = parse.urlencode({"market": market})
+        req = request.Request(
+            f"{SPOTIFY_ARTIST_TOP_TRACKS_URL_TEMPLATE.format(artist_id=parse.quote(cleaned_artist_id))}?{params}",
+            headers={"Authorization": f"Bearer {token}"},
+            method="GET",
+        )
+        payload = self._request_json(req, timeout=20)
+        if not payload:
+            return []
+
+        safe_limit = max(1, min(limit, 50))
+        tracks = payload.get("tracks", [])
+        parsed_tracks: list[SpotifyTrackData] = []
+        for track in tracks[:safe_limit]:
+            parsed_track = _parse_track_payload(track)
+            if parsed_track:
+                parsed_tracks.append(parsed_track)
+        return parsed_tracks
+
 
 
 def _parse_track_payload(track: dict[str, Any] | None) -> SpotifyTrackData | None:
@@ -240,6 +302,24 @@ def _parse_track_payload(track: dict[str, Any] | None) -> SpotifyTrackData | Non
         cover_url=cover,
         spotify_url=track.get("external_urls", {}).get("spotify"),
     )
+
+def _parse_artist_payload(artist: dict[str, Any] | None) -> SpotifyArtistData | None:
+    if not artist:
+        return None
+    artist_id = artist.get("id")
+    name = artist.get("name")
+    if not artist_id or not name:
+        return None
+
+    images = artist.get("images", [])
+    image_url = images[0].get("url") if images else None
+    return SpotifyArtistData(
+        artist_id=artist_id,
+        name=name,
+        image_url=image_url,
+        spotify_url=artist.get("external_urls", {}).get("spotify"),
+    )
+
 
 
 def _song_cache_key(song_id: str) -> str:

@@ -150,10 +150,83 @@
   opacity: calc(0.02 + var(--audio-reactive-level) * 0.92);
 }
 
+.collection-reroll-ready-btn {
+  background: rgb(99 102 241 / 1);
+  border: 1px solid rgb(199 210 254 / 0.9);
+  box-shadow: 0 0 24px rgb(99 102 241 / 0.7);
+  letter-spacing: 0.01em;
+  animation: collection-reroll-cta-pulse 1.35s ease-in-out infinite;
+}
+
+.collection-reroll-ready-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgb(99 102 241 / 0.85);
+}
+
+.collection-reroll-pop-in {
+  animation: collection-reroll-pop-in 280ms cubic-bezier(.18, .89, .32, 1.2);
+  transform-origin: 50% 24%;
+}
+
+@keyframes collection-reroll-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes collection-reroll-cta-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgb(99 102 241 / 0.58); }
+  50% { box-shadow: 0 0 32px rgb(99 102 241 / 0.9); }
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   .collection-song-card-reactive .song-card-content { transform: none; }
 }
 
+.collection-reroll-ready-btn {
+  background: rgb(99 102 241 / 1);
+  border: 1px solid rgb(199 210 254 / 0.9);
+  box-shadow: 0 0 24px rgb(99 102 241 / 0.7);
+  letter-spacing: 0.01em;
+  animation: collection-reroll-cta-pulse 1.35s ease-in-out infinite;
+}
+
+.collection-reroll-ready-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgb(99 102 241 / 0.85);
+}
+
+@keyframes collection-reroll-cta-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgb(99 102 241 / 0.58); }
+  50% { box-shadow: 0 0 32px rgb(99 102 241 / 0.9); }
+}
+
+.collection-reroll-song-btn.is-selected {
+  border-color: rgb(var(--rarity-rgb) / 0.98);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--rarity-rgb) / 0.45),
+    rgb(8 8 12 / 0.62)
+  );
+  box-shadow:
+    0 0 24px rgb(var(--rarity-rgb) / 0.48),
+    inset 0 0 0 1px rgb(var(--rarity-rgb) / 0.55);
+}
+
+.collection-reroll-song-btn.is-hovered {
+  border-color: rgb(var(--rarity-rgb) / 0.55);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--rarity-rgb) / 0.16),
+    rgb(8 8 12 / 0.5)
+  );
+}
 
 
 

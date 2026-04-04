@@ -300,12 +300,13 @@ def reroll_inventory_song(request):
 
     owned_song_ids = request.data.get('ownedSongIds')
     artist_keyword = (request.data.get('artistKeyword') or '').strip()
+    artist_id = (request.data.get('artistId') or '').strip()
 
     if not isinstance(owned_song_ids, list) or len(owned_song_ids) != 3:
         return Response({'detail': 'exactly 3 ownedSongIds are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if not artist_keyword:
-        return Response({'detail': 'artistKeyword is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not artist_keyword and not artist_id:
+        return Response({'detail': 'artistKeyword or artistId is required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         owned_song_ids = [int(song_id) for song_id in owned_song_ids]
@@ -330,7 +331,17 @@ def reroll_inventory_song(request):
     if not spotify_client.is_configured:
         return Response({'detail': 'spotify search is not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-    candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+    used_top_tracks_lookup = False
+    if artist_id:
+        used_top_tracks_lookup = True
+        candidates = spotify_client.get_artist_top_tracks(artist_id, limit=10)
+        if not candidates and artist_keyword:
+            # Some Spotify app configurations can reject top-tracks requests with
+            # client-credentials auth. Fall back to keyword track search so reroll
+            # still works when artist search itself succeeded.
+            candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+    else:
+        candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
     if not candidates:
         if spotify_client.last_error_code == 429:
             payload = {'detail': 'spotify rate limited'}
@@ -338,7 +349,10 @@ def reroll_inventory_song(request):
                 payload['retryAfterSeconds'] = spotify_client.last_retry_after_seconds
             return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
         if spotify_client.last_error_code == 403:
-            return Response({'detail': 'spotify access forbidden for search'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            detail = 'spotify access forbidden for search'
+            if used_top_tracks_lookup:
+                detail = 'spotify access forbidden for top tracks and fallback search'
+            return Response({'detail': detail}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({'detail': 'no Spotify tracks found for this artist keyword'}, status=status.HTTP_404_NOT_FOUND)
 
     chosen_track = random.choice(candidates)
@@ -359,6 +373,37 @@ def reroll_inventory_song(request):
         'rolledRarity': rolled_rarity,
     }, status=status.HTTP_201_CREATED)
 
+@api_view(['GET'])
+def spotify_artist_search(request):
+    keyword = (request.GET.get('q') or '').strip()
+    if len(keyword) < 2:
+        return Response({'artists': []}, status=status.HTTP_200_OK)
+
+    spotify_client = SpotifyClient()
+    if not spotify_client.is_configured:
+        return Response({'detail': 'spotify search is not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    artists = spotify_client.search_artists(keyword, limit=8)
+    if not artists:
+        if spotify_client.last_error_code == 429:
+            payload = {'detail': 'spotify rate limited'}
+            if spotify_client.last_retry_after_seconds is not None:
+                payload['retryAfterSeconds'] = spotify_client.last_retry_after_seconds
+            return Response(payload, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        if spotify_client.last_error_code == 403:
+            return Response({'detail': 'spotify access forbidden for search'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+    return Response({
+        'artists': [
+            {
+                'id': artist.artist_id,
+                'name': artist.name,
+                'imageUrl': artist.image_url,
+                'spotifyUrl': artist.spotify_url,
+            }
+            for artist in artists
+        ]
+    }, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 def profile_detail(request, username):

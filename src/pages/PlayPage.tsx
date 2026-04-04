@@ -675,7 +675,7 @@ export function PlayPage() {
               <div className="play-panel-content">
                 <div className="play-left-header">
                   <div className="play-left-title">Sleeve Collections</div>
-                  <div className="play-left-weekly">Refreshed Weekly!</div>
+                  <div className="play-left-weekly">Refreshed Daily!</div>
                 </div>
 
                 <div className="mt-4 flex-1 min-h-0 flex flex-col items-center justify-center play-left-stage">
