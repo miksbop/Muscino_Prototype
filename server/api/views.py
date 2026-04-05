@@ -27,6 +27,8 @@ from .preview import search_track_genre
 from .preview import AppleTrackData, search_artist_song_candidates, search_track_genre
 
 DAILY_LOGIN_BONUS = 100
+DAILY_LOGIN_LEVEL_BONUS_STEP = 40
+SLEEVE_OPEN_XP_REWARD = 50
 MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024
 ALLOWED_AVATAR_MIME_TYPES = {
     'image/png',
@@ -35,6 +37,7 @@ ALLOWED_AVATAR_MIME_TYPES = {
     'image/gif',
 }
 HEX_COLOR_RE = re.compile(r'^#[0-9a-fA-F]{6}$')
+
 
 
 def _profile_background_dirs() -> list[Path]:
@@ -120,6 +123,66 @@ def _roll_rarity_from_inputs(input_rarities: list[str]) -> str:
             chosen = rarity
             break
     return chosen
+
+def _rarity_from_apple_catalog_position(position: int | None, total_tracks: int) -> str | None:
+    if position is None or total_tracks <= 0:
+        return None
+
+    if total_tracks == 1:
+        return 'Common'
+
+    bounded_position = max(0, min(position, total_tracks - 1))
+    normalized = 1.0 - (bounded_position / (total_tracks - 1))
+    if normalized < 0.20:
+        return 'Common'
+    if normalized < 0.40:
+        return 'Uncommon'
+    if normalized < 0.60:
+        return 'Rare'
+    if normalized < 0.80:
+        return 'Epic'
+    return 'Legendary'
+
+def _best_apple_catalog_match_position(title: str | None, artist: str | None, catalog: list[AppleTrackData]) -> int | None:
+    wanted_title = (title or "").strip().casefold()
+    wanted_artist = (artist or "").strip().casefold()
+    if not wanted_title or not catalog:
+        return None
+
+    best_index = None
+    best_score = -1
+    for index, track in enumerate(catalog):
+        title_score = 0
+        track_title = (track.title or "").strip().casefold()
+        track_artist = (track.artist or "").strip().casefold()
+
+        if track_title == wanted_title:
+            title_score = 6
+        elif wanted_title in track_title or track_title in wanted_title:
+            title_score = 4
+        elif wanted_title and track_title:
+            wanted_tokens = {token for token in re.split(r"\W+", wanted_title) if token}
+            track_tokens = {token for token in re.split(r"\W+", track_title) if token}
+            overlap = len(wanted_tokens & track_tokens)
+            if overlap >= 2:
+                title_score = 2
+
+        # Do not allow artist-only matches; they bias to the first (most popular) item.
+        if title_score == 0:
+            continue
+
+        score = title_score
+
+        if wanted_artist and track_artist == wanted_artist:
+            score += 4
+        elif wanted_artist and (wanted_artist in track_artist or track_artist in wanted_artist):
+            score += 2
+
+        if score > best_score:
+            best_score = score
+            best_index = index
+
+    return best_index if best_score > 0 else None
 
 def _rarity_from_artist_rank(rank: int | None) -> str | None:
     if rank is None or rank <= 0:
@@ -237,6 +300,28 @@ def _profile_avatar_url(profile: Profile):
             return profile.avatar_url
     return profile.avatar_url
 
+def _xp_required_for_next_level(level: int) -> int:
+    return max(500, 500 * max(1, level))
+
+
+def _daily_login_bonus_for_level(level: int) -> int:
+    return DAILY_LOGIN_BONUS + (max(1, level) - 1) * DAILY_LOGIN_LEVEL_BONUS_STEP
+
+
+def _grant_profile_xp(profile: Profile, amount: int) -> bool:
+    if amount <= 0:
+        return False
+
+    profile.level = max(1, int(profile.level or 1))
+    profile.xp = max(0, int(profile.xp or 0)) + amount
+    leveled_up = False
+
+    while profile.xp >= _xp_required_for_next_level(profile.level):
+        profile.xp -= _xp_required_for_next_level(profile.level)
+        profile.level += 1
+        leveled_up = True
+
+    return leveled_up
 
 def _serialize_profile_response(user: User):
     owned_qs = OwnedSong.objects.filter(owner=user).select_related('song').order_by('-obtained_at')
@@ -249,6 +334,8 @@ def _serialize_profile_response(user: User):
     profile, _ = Profile.objects.get_or_create(user=user, defaults={'display_name': user.username})
     display_name = profile.display_name or user.username
     wallet = profile.wallet
+    level = max(1, int(profile.level or 1))
+    xp = max(0, int(profile.xp or 0))
     avatar_url = _profile_avatar_url(profile)
     bio = getattr(profile, 'bio', '') or ''
     theme_color = getattr(profile, 'theme_color', '#737373') or '#737373'
@@ -276,6 +363,10 @@ def _serialize_profile_response(user: User):
         'username': user.username,
         'displayName': display_name,
         'wallet': wallet,
+        'level': level,
+        'xp': xp,
+        'xpToNextLevel': _xp_required_for_next_level(level),
+        'dailyCoins': _daily_login_bonus_for_level(level),
         'avatarUrl': avatar_url,
         'joinedAt': user.date_joined.isoformat(),
         'daysRegistered': days_registered,
@@ -357,7 +448,8 @@ def open_sleeve(request, sleeve_id):
         return Response({'detail': 'not enough money in wallet'}, status=status.HTTP_400_BAD_REQUEST)
 
     profile.wallet -= sleeve.cost
-    profile.save()
+    _grant_profile_xp(profile, SLEEVE_OPEN_XP_REWARD)
+    profile.save(update_fields=['wallet', 'xp', 'level'])
 
     owned = OwnedSong.objects.create(song=chosen.song, rarity=chosen.rarity, owner=request.user)
     serializer = OwnedSongSerializer(owned)
@@ -426,13 +518,15 @@ def reroll_inventory_song(request):
             candidates = []
 
     apple_candidates: list[AppleTrackData] = []
-    if not candidates and artist_keyword:
-        apple_candidates = search_artist_song_candidates(artist_keyword, limit=100)
+    if artist_keyword:
+        apple_candidates = search_artist_song_candidates(artist_keyword, limit=120)
 
     if not candidates:
         if apple_candidates:
             chosen_apple_track = random.choice(apple_candidates)
-            rolled_rarity = _roll_rarity_from_inputs([song.rarity for song in owned_songs])
+            apple_position = apple_candidates.index(chosen_apple_track)
+            apple_rarity = _rarity_from_apple_catalog_position(apple_position, len(apple_candidates))
+            rolled_rarity = apple_rarity or _roll_rarity_from_inputs([song.rarity for song in owned_songs])
             with transaction.atomic():
                 OwnedSong.objects.filter(id__in=owned_song_ids, owner=request.user).delete()
                 canonical_song = _upsert_song_from_apple_track(chosen_apple_track)
@@ -463,7 +557,13 @@ def reroll_inventory_song(request):
         return Response({'detail': 'no Spotify tracks found for this artist keyword'}, status=status.HTTP_404_NOT_FOUND)
 
     chosen_track = random.choice(candidates)
-    rolled_rarity = _roll_rarity_from_inputs([song.rarity for song in owned_songs])
+    apple_position = _best_apple_catalog_match_position(
+        chosen_track.title,
+        chosen_track.artist,
+        apple_candidates,
+    )
+    apple_rarity = _rarity_from_apple_catalog_position(apple_position, len(apple_candidates))
+    rolled_rarity = apple_rarity or _roll_rarity_from_inputs([song.rarity for song in owned_songs])
 
     with transaction.atomic():
         OwnedSong.objects.filter(id__in=owned_song_ids, owner=request.user).delete()
@@ -798,10 +898,11 @@ def auth_login(request):
     profile = getattr(user, 'profile', None)
     if profile is not None:
         if profile.last_daily_bonus_claimed_at != today:
-            profile.wallet = (profile.wallet or 0) + DAILY_LOGIN_BONUS
+            daily_bonus = _daily_login_bonus_for_level(profile.level or 1)
+            profile.wallet = (profile.wallet or 0) + daily_bonus
             profile.last_daily_bonus_claimed_at = today
             profile.save(update_fields=['wallet', 'last_daily_bonus_claimed_at'])
-            wallet_increase = DAILY_LOGIN_BONUS
+            wallet_increase = daily_bonus
 
     return Response({'user': serializer.data, 'walletIncrease': wallet_increase})
 

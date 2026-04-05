@@ -115,6 +115,7 @@ const CARD_INTRO_STAGGER_MS = 88;
 const CARD_INTRO_BASE_MS = 340;
 const CARD_INTRO_START_DELAY_MS = 220;
 const CARD_INTRO_WAVE_COLUMNS = 4;
+const XP_PER_SLEEVE_OPEN = 50;
 const RARITY_WEIGHT: Record<OwnedSong["rarity"], number> = {
   Common: 35,
   Uncommon: 25,
@@ -142,8 +143,40 @@ function buildReel(items: OwnedSong[], result: OwnedSong) {
   return { tiles, finalIndex };
 }
 
+
+function xpRequiredForNextLevel(level: number): number {
+  return Math.max(500, 500 * Math.max(1, level));
+}
+
+function getProgressAfterXpGain(level: number, xp: number, gain: number) {
+  let workingLevel = Math.max(1, level);
+  let workingXp = Math.max(0, xp);
+  const fromProgress = Math.min(1, workingXp / xpRequiredForNextLevel(workingLevel));
+  let remainingGain = Math.max(0, gain);
+  let leveledUp = false;
+
+  while (remainingGain > 0) {
+    const threshold = xpRequiredForNextLevel(workingLevel);
+    const xpToLevel = threshold - workingXp;
+    if (remainingGain >= xpToLevel) {
+      remainingGain -= xpToLevel;
+      workingLevel += 1;
+      workingXp = 0;
+      leveledUp = true;
+      continue;
+    }
+
+    workingXp += remainingGain;
+    remainingGain = 0;
+  }
+
+  const toProgress = Math.min(1, workingXp / xpRequiredForNextLevel(workingLevel));
+  return { fromProgress, toProgress, leveledUp, nextLevel: workingLevel, nextXp: workingXp };
+}
+
+
 export function PlayPage() {
-  const { refreshUser } = useAuth();
+  const { user, refreshUser, triggerXpGainSignal } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sleeves, setSleeves] = useState<Sleeve[]>([]);
 
@@ -174,6 +207,13 @@ export function PlayPage() {
   const hasInitializedGenreRef = useRef(false);
   const [artistTickerIndex, setArtistTickerIndex] = useState(0);
   const [showSongAcquiredText, setShowSongAcquiredText] = useState(false);
+  const progressionRef = useRef<{ level: number; xp: number } | null>(null);
+  const [pendingXpGain, setPendingXpGain] = useState<{
+    amount: number;
+    fromProgress: number;
+    toProgress: number;
+    leveledUp: boolean;
+  } | null>(null);
 
   const stopReelSyncLoop = useCallback(() => {
     if (reelSyncRafRef.current !== null) {
@@ -181,6 +221,15 @@ export function PlayPage() {
       reelSyncRafRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    progressionRef.current = {
+      level: Math.max(1, user.level ?? 1),
+      xp: Math.max(0, user.xp ?? 0),
+    };
+  }, [user?.id, user?.level, user?.xp]);
+
 
   const startReelSyncLoop = useCallback(() => {
     stopReelSyncLoop();
@@ -408,6 +457,16 @@ export function PlayPage() {
     stopReelSyncLoop();
     stopSongPreview();
 
+    if (pendingXpGain?.amount) {
+      triggerXpGainSignal(pendingXpGain.amount, {
+        leveledUp: pendingXpGain.leveledUp,
+        fromProgress: pendingXpGain.fromProgress,
+        toProgress: pendingXpGain.toProgress,
+      });
+    }
+    setPendingXpGain(null);
+
+
     setOverlayOpen(false);
     setOpenState("idle");
     setRolled(null);
@@ -459,7 +518,26 @@ export function PlayPage() {
           timersRef.current.push(minIntroTimerId);
         }),
       ]);
+      const baselineProgression = progressionRef.current ?? {
+        level: Math.max(1, user?.level ?? 1),
+        xp: Math.max(0, user?.xp ?? 0),
+      };
+      const progressSnapshot = getProgressAfterXpGain(
+        baselineProgression.level,
+        baselineProgression.xp,
+        XP_PER_SLEEVE_OPEN,
+      );
+      progressionRef.current = {
+        level: progressSnapshot.nextLevel,
+        xp: progressSnapshot.nextXp,
+      };
       void refreshUser();
+      setPendingXpGain({
+        amount: XP_PER_SLEEVE_OPEN,
+        fromProgress: progressSnapshot.fromProgress,
+        toProgress: progressSnapshot.toProgress,
+        leveledUp: progressSnapshot.leveledUp,
+      });
     } catch (error) {
       setOpenState("idle");
       setOpenError(error instanceof Error ? error.message : "Failed to open sleeve");

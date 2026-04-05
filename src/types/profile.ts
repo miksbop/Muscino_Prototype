@@ -5,6 +5,10 @@ export type ProfileView = {
   username: string;
   displayName: string;
   wallet: number;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  dailyCoins: number;
   avatarUrl?: string | null;
   joinedAt: string;
   daysRegistered: number;

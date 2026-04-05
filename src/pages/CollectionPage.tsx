@@ -245,6 +245,12 @@ export function CollectionPage() {
     };
   }, [artistQuery]);
 
+    useEffect(() => {
+    if (rerollFxState === "revealed" && rerollResultSong) {
+      void playSongPreview(rerollResultSong);
+    }
+  }, [rerollFxState, rerollResultSong]);
+
   const rerollReady = Boolean(selectedArtist) && rerollSelection.length === 3;
 
   return (
@@ -411,6 +417,7 @@ export function CollectionPage() {
                   <input
                     value={artistQuery}
                     onChange={(e) => {
+                      stopSongPreview();
                       setArtistQuery(e.target.value);
                       setSelectedArtist(null);
                     }}
@@ -432,6 +439,7 @@ export function CollectionPage() {
                               type="button"
                               className="w-full px-3 py-2 text-left text-sm hover:bg-white/10 flex items-center justify-between gap-3 border-b border-white/5 last:border-b-0"
                               onClick={() => {
+                                stopSongPreview();
                                 setSelectedArtist(artist);
                                 setArtistQuery(artist.name);
                                 setArtistOptions([]);

@@ -9,6 +9,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [status, setStatus] = useState<"loading" | "ready">("loading");
   const [walletIncreaseSignal, setWalletIncreaseSignal] = useState<{ id: number; amount: number } | null>(null);
+  const [xpGainSignal, setXpGainSignal] = useState<{
+    id: number;
+    amount: number;
+    leveledUp: boolean;
+    fromProgress?: number;
+    toProgress?: number;
+  } | null>(null);
   const walletStorageKey = "muscino:last-seen-wallet-by-user";
 
   const getStoredWalletByUser = useCallback((): Record<string, number> => {
@@ -37,6 +44,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setWalletIncreaseSignal({
       id: Date.now() + Math.floor(Math.random() * 1000),
       amount,
+    });
+  }, []);
+
+  const triggerXpGainSignal = useCallback((
+    amount: number,
+    options?: { leveledUp?: boolean; fromProgress?: number; toProgress?: number },
+  ) => {
+    if (amount <= 0) return;
+    setXpGainSignal({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      amount,
+      leveledUp: Boolean(options?.leveledUp),
+      fromProgress: options?.fromProgress,
+      toProgress: options?.toProgress,
     });
   }, []);
 
@@ -114,12 +135,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status,
       isSignedIn: !!user,
       walletIncreaseSignal,
+      xpGainSignal,
       signIn,
       signUp,
       signOut,
       refreshUser,
+      triggerXpGainSignal,
     }),
-    [user, status, walletIncreaseSignal, signIn, signUp, signOut, refreshUser],
+    [user, status, walletIncreaseSignal, xpGainSignal, signIn, signUp, signOut, refreshUser, triggerXpGainSignal],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

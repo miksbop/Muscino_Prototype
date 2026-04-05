@@ -10,7 +10,7 @@ const fallbackAvatar =
   "https://avatars.fastly.steamstatic.com/dafbf49a3013de1a9528e06e796f49b8a8bdfef2_full.jpg";
 
 export function TopNav() {
-  const { user, status, isSignedIn, signOut, refreshUser, walletIncreaseSignal } = useAuth();
+  const { user, status, isSignedIn, signOut, refreshUser, walletIncreaseSignal, xpGainSignal } = useAuth();
   const [hoveredLink, setHoveredLink] = useState<string | null>(null);
   const [hoverIntensity, setHoverIntensity] = useState<Record<string, number>>(
     {},
@@ -21,9 +21,26 @@ export function TopNav() {
   const [walletPulse, setWalletPulse] = useState(false);
   const [walletPeakGlow, setWalletPeakGlow] = useState(false);
   const [animatedWallet, setAnimatedWallet] = useState<number>(user?.wallet ?? 0);
+  const [xpGainAmount, setXpGainAmount] = useState<number | null>(null);
+  const [xpTravelUp, setXpTravelUp] = useState(false);
+  const [xpProgressPulse, setXpProgressPulse] = useState(false);
+  const [xpOverlayVisible, setXpOverlayVisible] = useState(false);
+  const [xpDisplayProgress, setXpDisplayProgress] = useState(0);
   const walletAnimationFrameRef = useRef<number | null>(null);
+  const levelUpAudioRef = useRef<HTMLAudioElement | null>(null);
   const animatedWalletRef = useRef<number>(user?.wallet ?? 0);
   const walletDisplayStorageKey = "muscino:last-displayed-wallet-by-user";
+  const xpProgressPercent = Math.max(
+    0,
+    Math.min(
+      1,
+      user && user.xpToNextLevel > 0 ? user.xp / user.xpToNextLevel : 0,
+    ),
+  );
+  const effectiveXpProgress = Math.max(
+    0,
+    Math.min(1, xpOverlayVisible ? xpDisplayProgress : xpProgressPercent),
+  );
 
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
   const [isRequestsExpanded, setIsRequestsExpanded] = useState(false);
@@ -101,6 +118,10 @@ export function TopNav() {
       if (walletAnimationFrameRef.current) {
         cancelAnimationFrame(walletAnimationFrameRef.current);
       }
+      if (levelUpAudioRef.current) {
+        levelUpAudioRef.current.pause();
+        levelUpAudioRef.current = null;
+      }
     };
   }, []);
 
@@ -172,6 +193,55 @@ export function TopNav() {
       window.clearTimeout(countTimer);
     };
   }, [walletIncreaseSignal?.id, walletIncreaseSignal?.amount, animateWalletTo, user]);
+
+  useEffect(() => {
+    if (!xpGainSignal?.amount) return;
+
+    if (xpGainSignal.leveledUp) {
+      const levelUpAudio = levelUpAudioRef.current ?? new Audio("/sounds/level.mp3");
+      levelUpAudioRef.current = levelUpAudio;
+      levelUpAudio.currentTime = 0;
+      void levelUpAudio.play().catch(() => {
+        // ignored: browser autoplay restrictions / missing file
+      });
+    }
+
+    const fromProgress = Math.max(0, Math.min(1, xpGainSignal.fromProgress ?? xpProgressPercent));
+    const toProgress = Math.max(0, Math.min(1, xpGainSignal.toProgress ?? xpProgressPercent));
+    setXpGainAmount(xpGainSignal.amount);
+    setXpTravelUp(false);
+    setXpProgressPulse(true);
+    setXpOverlayVisible(true);
+    setXpDisplayProgress(fromProgress);
+
+    const jumpTimer = window.setTimeout(() => {
+      if (xpGainSignal.leveledUp) {
+        setXpDisplayProgress(1);
+        window.setTimeout(() => {
+          setXpDisplayProgress(toProgress);
+        }, 220);
+        return;
+      }
+
+      setXpDisplayProgress(toProgress);
+    }, 120);
+    const travelTimer = window.setTimeout(() => {
+      setXpTravelUp(true);
+    }, 880);
+    const clearTimer = window.setTimeout(() => {
+      setXpGainAmount(null);
+      setXpTravelUp(false);
+      setXpProgressPulse(false);
+      setXpOverlayVisible(false);
+      setXpDisplayProgress(toProgress);
+    }, 2050);
+
+    return () => {
+      window.clearTimeout(jumpTimer);
+      window.clearTimeout(travelTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [xpGainSignal?.id, xpGainSignal?.amount, xpGainSignal?.fromProgress, xpGainSignal?.toProgress, xpGainSignal?.leveledUp, xpProgressPercent]);
 
   useEffect(() => {
     if (!isSignedIn || !isFriendsOpen) return;
@@ -421,6 +491,31 @@ export function TopNav() {
             </NavLink>
           )}
         </div>
+      </div>
+      <div className={`nav-xp-overlay ${xpOverlayVisible ? "is-visible" : ""}`} aria-hidden="true">
+        <div className="nav-xp-overlay__track" />
+        <div
+          className={[
+            "nav-xp-overlay__fill",
+            xpProgressPulse ? "nav-xp-overlay__fill--pulse" : "",
+          ].join(" ")}
+          style={{ width: `${(effectiveXpProgress * 100).toFixed(2)}%` }}
+        />
+        <div
+          className={[
+            "nav-xp-overlay__cursor",
+            xpProgressPulse ? "nav-xp-overlay__cursor--pulse" : "",
+          ].join(" ")}
+          style={{ left: `${(effectiveXpProgress * 100).toFixed(2)}%` }}
+        />
+        {xpGainAmount ? (
+          <div
+            className={`nav-xp-overlay__float ${xpTravelUp ? "nav-xp-overlay__float--travel" : "nav-xp-overlay__float--linger"}`}
+            style={{ left: `${(effectiveXpProgress * 100).toFixed(2)}%` }}
+          >
+            +{xpGainAmount}xp
+          </div>
+        ) : null}
       </div>
 
       <aside

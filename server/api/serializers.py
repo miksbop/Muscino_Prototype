@@ -70,10 +70,14 @@ class UserSerializer(serializers.ModelSerializer):
     displayName = serializers.SerializerMethodField()
     wallet = serializers.SerializerMethodField()
     avatarUrl = serializers.SerializerMethodField()
+    level = serializers.SerializerMethodField()
+    xp = serializers.SerializerMethodField()
+    xpToNextLevel = serializers.SerializerMethodField()
+    dailyCoins = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'displayName', 'wallet', 'avatarUrl']
+        fields = ['id', 'username', 'displayName', 'wallet', 'avatarUrl', 'level', 'xp', 'xpToNextLevel', 'dailyCoins']
 
     def get_displayName(self, obj):
         try:
@@ -92,6 +96,28 @@ class UserSerializer(serializers.ModelSerializer):
             return _profile_avatar_data_url(obj.profile)
         except Exception:
             return None
+        
+
+    def get_level(self, obj):
+        try:
+            return max(1, int(obj.profile.level or 1))
+        except Exception:
+            return 1
+
+    def get_xp(self, obj):
+        try:
+            return max(0, int(obj.profile.xp or 0))
+        except Exception:
+            return 0
+
+    def get_xpToNextLevel(self, obj):
+        level = self.get_level(obj)
+        return max(500, 500 * level)
+
+    def get_dailyCoins(self, obj):
+        level = self.get_level(obj)
+        return 100 + max(0, level - 1) * 40
+
 
 
 class FriendUserSerializer(serializers.ModelSerializer):

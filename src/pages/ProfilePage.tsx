@@ -391,9 +391,21 @@ export function ProfilePage() {
 
             <div className="grid h-[calc(100%-4.5rem)] gap-6 lg:grid-cols-[1.05fr_0.9fr_2fr]">
               <section className="rounded-xl p-4 min-h-0" style={paneStyle as CSSProperties}>
-                <h2 className="mb-4 text-2xl text-neutral-100">
-                  {profile.displayName}&apos;s Profile:
-                </h2>
+                <div
+                  className="profile-level-block mb-4"
+                  style={{ ["--level-glow" as const]: String(Math.min(Math.max(profile.level, 1), 5) / 5) } as CSSProperties}
+                >
+                  <h2 className="profile-level-display">Level: {profile.level}</h2>
+                  <div className="profile-level-xp-wrap" aria-label={`XP ${profile.xp} of ${profile.xpToNextLevel}`}>
+                    <div
+                      className="profile-level-xp-fill"
+                      style={{ width: `${Math.min(100, Math.max(0, (profile.xp / Math.max(1, profile.xpToNextLevel)) * 100))}%` }}
+                    />
+                  </div>
+                  <p className="profile-level-xp-text">
+                    XP: {profile.xp} / {profile.xpToNextLevel}
+                  </p>
+                </div>
                 <SafeImage
                   src={
                     profile.avatarUrl ??
@@ -403,10 +415,16 @@ export function ProfilePage() {
                   className="mb-4 h-[360px] w-full rounded-xl object-cover"
                 />
                 <div className="space-y-3 rounded-lg bg-white/5 p-4 text-[0.95rem] leading-snug text-neutral-200">
-                  <p>Days Registered: {profile.daysRegistered}</p>
+                    {/* <MyComponent /><p>Days Registered: {profile.daysRegistered}</p>
                   <p>Songs Collected: {profile.songsCollected}</p>
                   <p className="whitespace-pre-line">
                     Bio: {profile.bio || "No bio set yet."}
+                    
+                  </p>
+                   */}
+                                     <p className="whitespace-pre-line">
+                    {profile.bio || "No bio set yet."}
+                    
                   </p>
                 </div>
               </section>

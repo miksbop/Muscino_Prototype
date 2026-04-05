@@ -423,10 +423,12 @@ export async function playSongPreview(song: PreviewTarget, options?: PlaySongPre
   const fadeInMs = Math.max(0, options?.fadeInMs ?? 0);
 
   try {
+    // Stop any in-progress preview immediately so stale audio never bleeds through
+    // while the next lookup resolves (or if no preview is found).
+    stopSongPreview();
     const previewUrl = await lookupApplePreview(song);
     if (!previewUrl || requestId !== playRequestId) return;
 
-    stopSongPreview();
     const audio = new Audio(previewUrl);
     audio.crossOrigin = "anonymous";
     audio.volume = targetVolume;
