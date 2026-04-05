@@ -12,6 +12,14 @@ class PreviewSnippet:
     preview_url: str
     source: str = "itunes"
 
+@dataclass
+class AppleTrackData:
+    track_id: str
+    title: str
+    artist: str
+    cover_url: str | None
+    genre: str | None
+    track_view_url: str | None
 
 def _artist_tokens(artist: str) -> list[str]:
     return [
@@ -19,6 +27,13 @@ def _artist_tokens(artist: str) -> list[str]:
         for token in re.split(r",|&| feat\.?| featuring ", (artist or "").strip(), flags=re.IGNORECASE)
         if token.strip()
     ]
+
+def _itunes_high_res_artwork(url: str | None, *, size: int = 1000) -> str | None:
+    if not url:
+        return None
+    # Apple artwork URLs usually encode size as ".../{N}x{N}bb.jpg".
+    return re.sub(r"/\d+x\d+bb\.", f"/{size}x{size}bb.", url)
+
 
 
 def _itunes_song_candidates(query_text: str, *, limit: int = 10) -> list[dict]:
@@ -169,3 +184,64 @@ def search_preview_snippet(title: str, artist: str | None = None) -> PreviewSnip
         return None
 
     return PreviewSnippet(preview_url=best_preview_url)
+
+
+    return PreviewSnippet(preview_url=best_preview_url)
+
+
+def search_artist_song_candidates(artist_keyword: str, *, limit: int = 75) -> list[AppleTrackData]:
+    cleaned_keyword = (artist_keyword or "").strip()
+    if not cleaned_keyword:
+        return []
+
+    params = parse.urlencode(
+        {
+            "term": cleaned_keyword,
+            "media": "music",
+            "entity": "song",
+            "attribute": "artistTerm",
+            "country": "US",
+            "limit": max(1, min(limit, 200)),
+        }
+    )
+    req = request.Request(f"{ITUNES_SEARCH_URL}?{params}", method="GET")
+    try:
+        with request.urlopen(req, timeout=15) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except (error.HTTPError, error.URLError, TimeoutError, ValueError):
+        return []
+
+    keyword_tokens = [token.casefold() for token in _artist_tokens(cleaned_keyword)]
+    if not keyword_tokens:
+        keyword_tokens = [cleaned_keyword.casefold()]
+
+    parsed: list[AppleTrackData] = []
+    seen_track_ids: set[str] = set()
+    for item in payload.get("results", []):
+        tid = item.get("trackId")
+        title = (item.get("trackName") or "").strip()
+        artist = (item.get("artistName") or "").strip()
+        if not tid or not title or not artist:
+            continue
+
+        artist_casefold = artist.casefold()
+        if not any(token in artist_casefold for token in keyword_tokens):
+            continue
+
+        track_id = str(tid)
+        if track_id in seen_track_ids:
+            continue
+        seen_track_ids.add(track_id)
+
+        parsed.append(
+            AppleTrackData(
+                track_id=track_id,
+                title=title,
+                artist=artist,
+                cover_url=_itunes_high_res_artwork(item.get("artworkUrl100")),
+                genre=(item.get("primaryGenreName") or "").strip() or None,
+                track_view_url=item.get("trackViewUrl"),
+            )
+        )
+
+    return parsed

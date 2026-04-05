@@ -24,6 +24,7 @@ from .serializers import (
 )
 from .spotify import SpotifyClient, hydrate_songs_from_spotify
 from .preview import search_track_genre
+from .preview import AppleTrackData, search_artist_song_candidates, search_track_genre
 
 DAILY_LOGIN_BONUS = 100
 MAX_PROFILE_AVATAR_BYTES = 5 * 1024 * 1024
@@ -120,6 +121,18 @@ def _roll_rarity_from_inputs(input_rarities: list[str]) -> str:
             break
     return chosen
 
+def _rarity_from_artist_rank(rank: int | None) -> str | None:
+    if rank is None or rank <= 0:
+        return None
+    if rank <= 3:
+        return 'Legendary'
+    if rank <= 10:
+        return 'Epic'
+    if rank <= 25:
+        return 'Rare'
+    if rank <= 50:
+        return 'Uncommon'
+    return 'Common'
 
 def _upsert_song_from_spotify_track(track) -> Song:
     apple_genre = search_track_genre(track.title or "", track.artist)
@@ -151,7 +164,67 @@ def _upsert_song_from_spotify_track(track) -> Song:
 
     return song
 
+def _upsert_song_from_apple_track(track: AppleTrackData) -> Song:
+    defaults = {
+        'title': track.title or track.track_id,
+        'artist': track.artist or 'Unknown Artist',
+        'cover_url': track.cover_url,
+        'genre': track.genre or search_track_genre(track.title or "", track.artist) or 'Unknown',
+        'spotify_track_id': None,
+        'spotify_url': track.track_view_url,
+    }
 
+    song, created = Song.objects.get_or_create(
+        id=f"apple:{track.track_id}",
+        defaults=defaults,
+    )
+
+    if not created:
+        changed_fields = []
+        for field, value in defaults.items():
+            if field == 'genre' and value == 'Unknown':
+                continue
+            if value is not None and getattr(song, field) != value:
+                setattr(song, field, value)
+                changed_fields.append(field)
+        if changed_fields:
+            song.save(update_fields=changed_fields)
+
+    return song
+
+
+def _normalize_artist_text(value: str | None) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
+
+
+def _filter_tracks_for_locked_artist(candidates: list, artist_id: str, artist_keyword: str) -> list:
+    normalized_keyword = _normalize_artist_text(artist_keyword)
+    filtered = []
+    for track in candidates:
+        primary_artist_id = getattr(track, "primary_artist_id", None)
+        track_artist_text = getattr(track, "artist", None)
+        if artist_id and primary_artist_id == artist_id:
+            filtered.append(track)
+            continue
+        if artist_id:
+            continue
+        if normalized_keyword and normalized_keyword in _normalize_artist_text(track_artist_text):
+            filtered.append(track)
+    return filtered
+
+
+def _dedupe_tracks_by_id(candidates: list) -> list:
+    deduped = []
+    seen_ids = set()
+    for track in candidates:
+        track_id = getattr(track, "track_id", None)
+        if not track_id:
+            continue
+        if track_id in seen_ids:
+            continue
+        seen_ids.add(track_id)
+        deduped.append(track)
+    return deduped
 def _profile_avatar_url(profile: Profile):
     avatar_image = getattr(profile, 'avatar_image', None)
     avatar_mime_type = getattr(profile, 'avatar_mime_type', None)
@@ -328,21 +401,53 @@ def reroll_inventory_song(request):
         return Response({'detail': 'listed songs cannot be rerolled'}, status=status.HTTP_400_BAD_REQUEST)
 
     spotify_client = SpotifyClient()
-    if not spotify_client.is_configured:
-        return Response({'detail': 'spotify search is not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
+    
     used_top_tracks_lookup = False
-    if artist_id:
-        used_top_tracks_lookup = True
-        candidates = spotify_client.get_artist_top_tracks(artist_id, limit=10)
-        if not candidates and artist_keyword:
-            # Some Spotify app configurations can reject top-tracks requests with
-            # client-credentials auth. Fall back to keyword track search so reroll
-            # still works when artist search itself succeeded.
-            candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
-    else:
-        candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+  
+    candidates = []
+    spotify_lookup_failed = False
+    if spotify_client.is_configured:
+        try:
+            if artist_id:
+                used_top_tracks_lookup = True
+                top_candidates = spotify_client.get_artist_top_tracks(artist_id, limit=25)
+                catalog_candidates = spotify_client.get_artist_catalog_tracks(artist_id, limit=120)
+                candidates = _dedupe_tracks_by_id(top_candidates + catalog_candidates)
+                if not candidates and artist_keyword:
+                    # Some Spotify app configurations can reject top-tracks requests with
+                    # client-credentials auth. Fall back to keyword track search so reroll
+                    # still works when artist search itself succeeded.
+                    candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+                candidates = _filter_tracks_for_locked_artist(candidates, artist_id, artist_keyword)
+            else:
+                candidates = spotify_client.search_artist_tracks(artist_keyword, limit=10)
+        except Exception:
+            spotify_lookup_failed = True
+            candidates = []
+
+    apple_candidates: list[AppleTrackData] = []
+    if not candidates and artist_keyword:
+        apple_candidates = search_artist_song_candidates(artist_keyword, limit=100)
+
     if not candidates:
+        if apple_candidates:
+            chosen_apple_track = random.choice(apple_candidates)
+            rolled_rarity = _roll_rarity_from_inputs([song.rarity for song in owned_songs])
+            with transaction.atomic():
+                OwnedSong.objects.filter(id__in=owned_song_ids, owner=request.user).delete()
+                canonical_song = _upsert_song_from_apple_track(chosen_apple_track)
+                rolled_song = OwnedSong.objects.create(song=canonical_song, rarity=rolled_rarity, owner=request.user)
+
+            serializer = OwnedSongSerializer(rolled_song)
+            payload = serializer.data
+            hydrate_songs_from_spotify([payload])
+            return Response({
+                'newSong': payload,
+                'consumedOwnedSongIds': owned_song_ids,
+                'rolledRarity': rolled_rarity,
+                'provider': 'apple',
+            }, status=status.HTTP_201_CREATED)
+
         if spotify_client.last_error_code == 429:
             payload = {'detail': 'spotify rate limited'}
             if spotify_client.last_retry_after_seconds is not None:
@@ -353,6 +458,8 @@ def reroll_inventory_song(request):
             if used_top_tracks_lookup:
                 detail = 'spotify access forbidden for top tracks and fallback search'
             return Response({'detail': detail}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if spotify_lookup_failed:
+            return Response({'detail': 'spotify lookup failed and no Apple tracks found'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         return Response({'detail': 'no Spotify tracks found for this artist keyword'}, status=status.HTTP_404_NOT_FOUND)
 
     chosen_track = random.choice(candidates)

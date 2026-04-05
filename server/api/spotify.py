@@ -14,6 +14,8 @@ SPOTIFY_AUTH_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_TRACKS_URL = "https://api.spotify.com/v1/tracks"
 SPOTIFY_SEARCH_URL = "https://api.spotify.com/v1/search"
 SPOTIFY_ARTIST_TOP_TRACKS_URL_TEMPLATE = "https://api.spotify.com/v1/artists/{artist_id}/top-tracks"
+SPOTIFY_ARTIST_ALBUMS_URL_TEMPLATE = "https://api.spotify.com/v1/artists/{artist_id}/albums"
+SPOTIFY_ALBUM_TRACKS_URL_TEMPLATE = "https://api.spotify.com/v1/albums/{album_id}/tracks"
 TOKEN_CACHE_KEY = "spotify:client-token"
 THROTTLE_UNTIL_CACHE_KEY = "spotify:throttle-until"
 THROTTLE_LAST_PROBE_CACHE_KEY = "spotify:throttle-last-probe"
@@ -29,6 +31,7 @@ class SpotifyTrackData:
     track_id: str
     title: str | None
     artist: str | None
+    artist_ids: tuple[str, ...]
     cover_url: str | None
     spotify_url: str | None
 
@@ -282,6 +285,75 @@ class SpotifyClient:
                 parsed_tracks.append(parsed_track)
         return parsed_tracks
 
+    def get_artist_catalog_tracks(self, artist_id: str, market: str = "US", limit: int = 100) -> list[SpotifyTrackData]:
+        self._clear_last_error()
+        token = self.access_token()
+        cleaned_artist_id = artist_id.strip()
+        if not token or not cleaned_artist_id:
+            return []
+
+        safe_limit = max(1, min(limit, 200))
+        album_ids: list[str] = []
+        offset = 0
+
+        while len(album_ids) < safe_limit:
+            params = parse.urlencode({
+                "include_groups": "album,single",
+                "market": market,
+                "limit": 50,
+                "offset": offset,
+            })
+            req = request.Request(
+                f"{SPOTIFY_ARTIST_ALBUMS_URL_TEMPLATE.format(artist_id=parse.quote(cleaned_artist_id))}?{params}",
+                headers={"Authorization": f"Bearer {token}"},
+                method="GET",
+            )
+            payload = self._request_json(req, timeout=20)
+            if not payload or not isinstance(payload, dict):
+                break
+            items = payload.get("items", [])
+            if not items:
+                break
+
+            for album in items:
+                aid = album.get("id")
+                if aid and aid not in album_ids:
+                    album_ids.append(aid)
+                    if len(album_ids) >= safe_limit:
+                        break
+
+            if len(items) < 50:
+                break
+            offset += 50
+
+        track_ids: list[str] = []
+        seen_track_ids: set[str] = set()
+        for album_id in album_ids:
+            params = parse.urlencode({"market": market, "limit": 50})
+            req = request.Request(
+                f"{SPOTIFY_ALBUM_TRACKS_URL_TEMPLATE.format(album_id=parse.quote(album_id))}?{params}",
+                headers={"Authorization": f"Bearer {token}"},
+                method="GET",
+            )
+            payload = self._request_json(req, timeout=20)
+            if not payload or not isinstance(payload, dict):
+                continue
+
+            for track in payload.get("items", []):
+                tid = track.get("id")
+                if tid and tid not in seen_track_ids:
+                    seen_track_ids.add(tid)
+                    track_ids.append(tid)
+                if len(track_ids) >= safe_limit:
+                    break
+            if len(track_ids) >= safe_limit:
+                break
+
+        if not track_ids:
+            return []
+
+        track_map = self.get_tracks(track_ids)
+        return [track_map[tid] for tid in track_ids if tid in track_map]
 
 
 def _parse_track_payload(track: dict[str, Any] | None) -> SpotifyTrackData | None:
@@ -291,7 +363,10 @@ def _parse_track_payload(track: dict[str, Any] | None) -> SpotifyTrackData | Non
     if not tid:
         return None
 
-    artists = ", ".join(a.get("name", "") for a in track.get("artists", []) if a.get("name"))
+    track_artists = track.get("artists", []) or []
+    artists = ", ".join(a.get("name", "") for a in track_artists if a.get("name"))
+    artist_ids = tuple(str(a.get("id")) for a in track_artists if a.get("id"))
+    primary_artist_id = str(track_artists[0].get("id")) if track_artists and track_artists[0].get("id") else None
     images = track.get("album", {}).get("images", [])
     cover = images[0].get("url") if images else None
 
@@ -299,6 +374,8 @@ def _parse_track_payload(track: dict[str, Any] | None) -> SpotifyTrackData | Non
         track_id=tid,
         title=track.get("name"),
         artist=artists or None,
+        artist_ids=artist_ids,
+        primary_artist_id=primary_artist_id,
         cover_url=cover,
         spotify_url=track.get("external_urls", {}).get("spotify"),
     )
