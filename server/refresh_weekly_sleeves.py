@@ -23,11 +23,12 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 from urllib import error, parse, request
 
 import django
+from django.db import transaction
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 django.setup()
@@ -752,6 +753,59 @@ def refresh_genre_sleeve(token: str | None, genre: str, limit: int, market: str,
     upsert_sleeve_entries(genre=genre, chosen=chosen)
 
 
+def _next_daily_run(target_hhmm: str) -> datetime:
+    try:
+        hour_str, minute_str = target_hhmm.strip().split(":", maxsplit=1)
+        hour = int(hour_str)
+        minute = int(minute_str)
+    except ValueError as exc:
+        raise ValueError(f"Invalid --daily-at value '{target_hhmm}'. Expected HH:MM (24-hour clock).") from exc
+
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        raise ValueError(f"Invalid --daily-at value '{target_hhmm}'. Expected HH:MM (24-hour clock).")
+
+    now = datetime.now()
+    run_at = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if run_at <= now:
+        run_at = run_at + timedelta(days=1)
+    return run_at
+
+
+def _maybe_get_token(local_only: bool) -> str | None:
+    if local_only:
+        print("Running weekly sleeve refresh in local-only mode (no Spotify requests).")
+        return None
+
+    client_id = os.environ.get("SPOTIFY_CLIENT_ID")
+    client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        raise RuntimeError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are required unless --local-only is used")
+
+    try:
+        return spotify_token(client_id, client_secret)
+    except error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="ignore")
+        raise RuntimeError(f"Spotify token request failed: {exc.code} {detail}") from exc
+
+
+def refresh_all_genres(
+    *,
+    genres: list[str],
+    limit: int,
+    market: str,
+    local_only: bool,
+    delay_between_genres_seconds: float,
+) -> None:
+    token = _maybe_get_token(local_only=local_only)
+
+    with transaction.atomic():
+        for i, genre in enumerate(genres):
+            refresh_genre_sleeve(token, genre=genre, limit=limit, market=market, local_only=local_only)
+            if i < len(genres) - 1 and delay_between_genres_seconds > 0:
+                time.sleep(delay_between_genres_seconds)
+
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh weekly sleeves from Spotify")
     parser.add_argument(
@@ -759,8 +813,24 @@ def main() -> None:
         nargs="+",
         default=["Pop", "Rock", "Rap", "Country", "K-Pop", "Dance/Electronic", "Game Soundtrack", "Indie"],
     )
-    parser.add_argument("--limit", type=int, default=30, help="per-source search limit")
+    parser.add_argument("--limit", type=int, default=20, help="per-source search limit")
     parser.add_argument("--market", default="US")
+    parser.add_argument(
+        "--daily",
+        action="store_true",
+        help="run once per day at --daily-at time",
+    )
+    parser.add_argument(
+        "--daily-at",
+        default="10:00",
+        help="daily run time in HH:MM (24-hour clock, server local time), default: 10:00",
+    )
+    parser.add_argument(
+        "--delay-between-genres-seconds",
+        type=float,
+        default=20.0,
+        help="delay between each genre refresh to spread Spotify requests",
+    )
     parser.add_argument(
         "--local-only",
         action="store_true",
@@ -768,23 +838,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    token: str | None = None
-    if not args.local_only:
-        client_id = os.environ.get("SPOTIFY_CLIENT_ID")
-        client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET")
-        if not client_id or not client_secret:
-            raise RuntimeError("SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are required unless --local-only is used")
-
-        try:
-            token = spotify_token(client_id, client_secret)
-        except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="ignore")
-            raise RuntimeError(f"Spotify token request failed: {exc.code} {detail}") from exc
+    if args.daily:
+        while True:
+            next_run = _next_daily_run(args.daily_at)
+            seconds_until = max((next_run - datetime.now()).total_seconds(), 0.0)
+            print(f"Next daily sleeve refresh run at {next_run.isoformat()} (in {int(seconds_until)}s)")
+            time.sleep(seconds_until)
+            refresh_all_genres(
+                genres=args.genres,
+                limit=args.limit,
+                market=args.market,
+                local_only=args.local_only,
+                delay_between_genres_seconds=args.delay_between_genres_seconds,
+            )
     else:
-        print("Running weekly sleeve refresh in local-only mode (no Spotify requests).")
-
-    for genre in args.genres:
-        refresh_genre_sleeve(token, genre=genre, limit=args.limit, market=args.market, local_only=args.local_only)
+        refresh_all_genres(
+            genres=args.genres,
+            limit=args.limit,
+            market=args.market,
+            local_only=args.local_only,
+            delay_between_genres_seconds=args.delay_between_genres_seconds,
+        )
 
 
 if __name__ == "__main__":

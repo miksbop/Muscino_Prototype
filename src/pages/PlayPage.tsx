@@ -206,7 +206,7 @@ export function PlayPage() {
   const [leftPanelSheenTick, setLeftPanelSheenTick] = useState(0);
   const hasInitializedGenreRef = useRef(false);
   const [artistTickerIndex, setArtistTickerIndex] = useState(0);
-  const [showSongAcquiredText, setShowSongAcquiredText] = useState(false);
+  const [hoveredSong, setHoveredSong] = useState<Pick<OwnedSong, "id" | "title" | "artist"> | null>(null);
   const progressionRef = useRef<{ level: number; xp: number } | null>(null);
   const [pendingXpGain, setPendingXpGain] = useState<{
     amount: number;
@@ -469,8 +469,9 @@ export function PlayPage() {
 
     setOverlayOpen(false);
     setOpenState("idle");
+    setHoveredSong(null);
     setRolled(null);
-    setOpenError(null);
+    setOpenError(null); 
     setShowSongAcquiredText(false);
 
     setReelTiles([]);
@@ -489,6 +490,20 @@ export function PlayPage() {
     void playSongPreview(activeSong);
   }, [activeSong, openState]);
 
+    useEffect(() => {
+    if (overlayOpen || openState === "revealed") {
+      return;
+    }
+
+    if (!hoveredSong) {
+      stopSongPreview();
+      return;
+    }
+
+    void playSongPreview(hoveredSong);
+  }, [hoveredSong, openState, overlayOpen]);
+
+
   async function handleOpen() {
     if (!current) return;
 
@@ -498,6 +513,7 @@ export function PlayPage() {
 
     setOverlayOpen(true);
     setOpenState("dropping");
+    setHoveredSong(null);
     setRolled(null);
     setOpenError(null);
     setShowSongAcquiredText(false);
@@ -834,6 +850,10 @@ export function PlayPage() {
                         song={song}
                         selected={false}
                         onSelect={() => {}}
+                        onHoverStart={(hoverSong) => setHoveredSong(hoverSong)}
+                        onHoverEnd={(hoverSong) =>
+                          setHoveredSong((currentHover) => (currentHover?.id === hoverSong.id ? null : currentHover))
+                        }
                         className={cardIntroActive ? "play-song-card-intro" : ""}
                         hoverChancePercent={dropChanceBySongId.get(song.id)}
                         style={

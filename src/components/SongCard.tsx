@@ -21,9 +21,20 @@ type SongCardProps = {
   className?: string;
   style?: CSSProperties;
   hoverChancePercent?: number;
+  onHoverStart?: (song: SongCardData) => void;
+  onHoverEnd?: (song: SongCardData) => void;
 };
 
-export function SongCard({ song, selected = false, onSelect, className, style, hoverChancePercent }: SongCardProps) {
+export function SongCard({
+  song,
+  selected = false,
+  onSelect,
+  className,
+  style,
+  hoverChancePercent,
+  onHoverStart,
+  onHoverEnd,
+}: SongCardProps) {
   const hasCover = Boolean(song.coverUrl && song.coverUrl.trim().length > 0);
   const [chanceDisplay, setChanceDisplay] = useState(0);
   const frameRef = useRef<number | null>(null);
@@ -61,15 +72,26 @@ export function SongCard({ song, selected = false, onSelect, className, style, h
     frameRef.current = window.requestAnimationFrame(tick);
   }
 
+    function handleHoverStart() {
+    runChanceAnimation();
+    onHoverStart?.(song);
+  }
+
+  function handleHoverEnd() {
+    stopChanceAnimation();
+    onHoverEnd?.(song);
+  }
+
+
   useEffect(() => () => stopChanceAnimation(), []);
 
   return (
     <button
       onClick={onSelect}
-      onMouseEnter={runChanceAnimation}
-      onFocus={runChanceAnimation}
-      onMouseLeave={stopChanceAnimation}
-      onBlur={stopChanceAnimation}
+      onMouseEnter={handleHoverStart}
+      onFocus={handleHoverStart}
+      onMouseLeave={handleHoverEnd}
+      onBlur={handleHoverEnd}
       style={style}
       className={[
         "relative overflow-hidden z-0",
