@@ -19,7 +19,7 @@ export function TopNav() {
   const [walletPopAmount, setWalletPopAmount] = useState<number | null>(null);
   const [walletTravelUp, setWalletTravelUp] = useState(false);
   const [walletPulse, setWalletPulse] = useState(false);
-  const [walletPeakGlow, setWalletPeakGlow] = useState(false);
+  const [walletPeakGlow, setWalletPeakGlow] = useState(false);  
   const [animatedWallet, setAnimatedWallet] = useState<number>(user?.wallet ?? 0);
   const [xpGainAmount, setXpGainAmount] = useState<number | null>(null);
   const [xpTravelUp, setXpTravelUp] = useState(false);
@@ -27,8 +27,11 @@ export function TopNav() {
   const [xpOverlayVisible, setXpOverlayVisible] = useState(false);
   const [xpDisplayProgress, setXpDisplayProgress] = useState(0);
   const walletAnimationFrameRef = useRef<number | null>(null);
+  const xpCountAnimationFrameRef = useRef<number | null>(null);
   const levelUpAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastHandledXpSignalIdRef = useRef<number | null>(null);
   const animatedWalletRef = useRef<number>(user?.wallet ?? 0);
+  const previousWalletRef = useRef<number>(user?.wallet ?? 0);
   const walletDisplayStorageKey = "muscino:last-displayed-wallet-by-user";
   const xpProgressPercent = Math.max(
     0,
@@ -95,6 +98,7 @@ export function TopNav() {
   useEffect(() => {
     if (!user) {
       animatedWalletRef.current = 0;
+      previousWalletRef.current = 0;
       setAnimatedWallet(0);
       return;
     }
@@ -110,13 +114,32 @@ export function TopNav() {
     const nextDisplay = Math.min(Math.max(0, baseline), user.wallet);
 
     animatedWalletRef.current = nextDisplay;
+    previousWalletRef.current = user.wallet;
     setAnimatedWallet(nextDisplay);
   }, [user?.id, walletIncreaseSignal?.id, walletIncreaseSignal?.amount, getStoredDisplayedWallet]);
+
+
+  useEffect(() => {
+    if (!user) return;
+
+    const previousWallet = previousWalletRef.current;
+    if (user.wallet < previousWallet) {
+      setWalletPopAmount(null);
+      setWalletTravelUp(false);
+      setWalletPulse(false);
+      setWalletPeakGlow(false);
+    }
+
+    previousWalletRef.current = user.wallet;
+  }, [user?.id, user?.wallet]);
 
   useEffect(() => {
     return () => {
       if (walletAnimationFrameRef.current) {
         cancelAnimationFrame(walletAnimationFrameRef.current);
+      }
+      if (xpCountAnimationFrameRef.current) {
+        cancelAnimationFrame(xpCountAnimationFrameRef.current);
       }
       if (levelUpAudioRef.current) {
         levelUpAudioRef.current.pause();
@@ -196,6 +219,8 @@ export function TopNav() {
 
   useEffect(() => {
     if (!xpGainSignal?.amount) return;
+    if (lastHandledXpSignalIdRef.current === xpGainSignal.id) return;
+    lastHandledXpSignalIdRef.current = xpGainSignal.id;
 
     if (xpGainSignal.leveledUp) {
       const levelUpAudio = levelUpAudioRef.current ?? new Audio("/sounds/level.mp3");
@@ -208,7 +233,7 @@ export function TopNav() {
 
     const fromProgress = Math.max(0, Math.min(1, xpGainSignal.fromProgress ?? xpProgressPercent));
     const toProgress = Math.max(0, Math.min(1, xpGainSignal.toProgress ?? xpProgressPercent));
-    setXpGainAmount(xpGainSignal.amount);
+    setXpGainAmount(null);
     setXpTravelUp(false);
     setXpProgressPulse(true);
     setXpOverlayVisible(true);
@@ -225,21 +250,53 @@ export function TopNav() {
 
       setXpDisplayProgress(toProgress);
     }, 120);
+
+    const progressSettleMs = xpGainSignal.leveledUp ? 660 : 440;
+    const floatAppearDelayMs = progressSettleMs + 40;
+    const countUpDurationMs = 620;
+    const lingerAfterCountMs = 1000;
+    const floatTravelDelayMs = floatAppearDelayMs + countUpDurationMs + lingerAfterCountMs;
+    const clearDelayMs = floatTravelDelayMs + 760;
+
+    const floatAppearTimer = window.setTimeout(() => {
+      const targetAmount = Math.max(1, Math.trunc(xpGainSignal.amount));
+      setXpGainAmount(1);
+      setXpTravelUp(false);
+      const countStartAt = performance.now();
+      const countStep = (now: number) => {
+        const progress = Math.min(1, (now - countStartAt) / countUpDurationMs);
+        const nextAmount = Math.max(1, Math.round(1 + (targetAmount - 1) * progress));
+        setXpGainAmount(nextAmount);
+        if (progress < 1) {
+          xpCountAnimationFrameRef.current = window.requestAnimationFrame(countStep);
+          return;
+        }
+        xpCountAnimationFrameRef.current = null;
+      };
+      xpCountAnimationFrameRef.current = window.requestAnimationFrame(countStep);
+    }, floatAppearDelayMs);
+
+
     const travelTimer = window.setTimeout(() => {
       setXpTravelUp(true);
-    }, 880);
+    }, floatTravelDelayMs);
     const clearTimer = window.setTimeout(() => {
       setXpGainAmount(null);
       setXpTravelUp(false);
       setXpProgressPulse(false);
       setXpOverlayVisible(false);
       setXpDisplayProgress(toProgress);
-    }, 2050);
+    }, clearDelayMs);
 
     return () => {
       window.clearTimeout(jumpTimer);
+      window.clearTimeout(floatAppearTimer);
       window.clearTimeout(travelTimer);
       window.clearTimeout(clearTimer);
+      if (xpCountAnimationFrameRef.current) {
+        window.cancelAnimationFrame(xpCountAnimationFrameRef.current);
+        xpCountAnimationFrameRef.current = null;
+      }
     };
   }, [xpGainSignal?.id, xpGainSignal?.amount, xpGainSignal?.fromProgress, xpGainSignal?.toProgress, xpGainSignal?.leveledUp, xpProgressPercent]);
 

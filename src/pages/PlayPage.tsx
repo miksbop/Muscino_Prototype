@@ -193,6 +193,7 @@ export function PlayPage() {
   const [openState, setOpenState] = useState<OpenState>("idle");
   const [rolled, setRolled] = useState<OwnedSong | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  const [showSongAcquiredText, setShowSongAcquiredText] = useState(false);
 
   const [reelTiles, setReelTiles] = useState<OwnedSong[]>([]);
   const [finalIndex, setFinalIndex] = useState(0);
@@ -214,6 +215,11 @@ export function PlayPage() {
     toProgress: number;
     leveledUp: boolean;
   } | null>(null);
+  const scrollAudioRef = useRef<HTMLAudioElement | null>(null);
+  const explosionAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastReelFocusIndexRef = useRef<number | null>(null);
+  const scrollTickCountRef = useRef(0);
+  const hasPlayedLegendaryExplosionRef = useRef(false);
 
   const stopReelSyncLoop = useCallback(() => {
     if (reelSyncRafRef.current !== null) {
@@ -290,8 +296,58 @@ export function PlayPage() {
       timersRef.current = [];
       stopReelSyncLoop();
       stopSongPreview();
+      if (scrollAudioRef.current) {
+        scrollAudioRef.current.pause();
+        scrollAudioRef.current = null;
+      }
+      if (explosionAudioRef.current) {
+        explosionAudioRef.current.pause();
+        explosionAudioRef.current = null;
+      }
     };
   }, [stopReelSyncLoop]);
+
+  useEffect(() => {
+    if (openState !== "rolling") {
+      lastReelFocusIndexRef.current = null;
+      scrollTickCountRef.current = 0;
+      return;
+    }
+
+    if (lastReelFocusIndexRef.current === null) {
+      lastReelFocusIndexRef.current = reelFocusIndex;
+      return;
+    }
+
+    if (lastReelFocusIndexRef.current !== reelFocusIndex) {
+      const scrollAudio = scrollAudioRef.current ?? new Audio("/sounds/scroll.wav");
+      scrollAudioRef.current = scrollAudio;
+      scrollTickCountRef.current += 1;
+      const playbackRate = Math.min(1 + (scrollTickCountRef.current - 1) * 0.04, 1.9);
+      scrollAudio.playbackRate = playbackRate;
+      scrollAudio.currentTime = 0;
+      void scrollAudio.play().catch(() => {});
+    }
+
+    lastReelFocusIndexRef.current = reelFocusIndex;
+  }, [openState, reelFocusIndex]);
+
+  useEffect(() => {
+    const focusedSong = (reelTiles[reelFocusIndex] ?? rolled) ?? null;
+    if (openState !== "revealed" || !focusedSong || focusedSong.rarity !== "Legendary") {
+      return;
+    }
+
+    if (hasPlayedLegendaryExplosionRef.current) {
+      return;
+    }
+
+    hasPlayedLegendaryExplosionRef.current = true;
+    const explosionAudio = explosionAudioRef.current ?? new Audio("/sounds/explosion.mp3");
+    explosionAudioRef.current = explosionAudio;
+    explosionAudio.currentTime = 0;
+    void explosionAudio.play().catch(() => {});
+  }, [openState, reelFocusIndex, reelTiles, rolled]);
 
   useEffect(() => {
     if (openState !== "rolling") {
@@ -478,6 +534,9 @@ export function PlayPage() {
     setFinalIndex(0);
     setReelTick((tick) => tick + 1);
     setReelFocusIndex(0);
+    scrollTickCountRef.current = 0;
+    hasPlayedLegendaryExplosionRef.current = false;
+    lastReelFocusIndexRef.current = null;
   }
 
   
@@ -521,6 +580,9 @@ export function PlayPage() {
     setReelTiles([]);
     setFinalIndex(0);
     setReelTick((tick) => tick + 1);
+    scrollTickCountRef.current = 0;
+    hasPlayedLegendaryExplosionRef.current = false;
+    lastReelFocusIndexRef.current = null;
 
     const burstTimerId = window.setTimeout(() => setOpenState("burst"), DROP_DURATION_MS);
     timersRef.current.push(burstTimerId);
@@ -638,7 +700,12 @@ export function PlayPage() {
                     {(openState === "rolling" || openState === "revealed") && (
                       <>
                         {openState !== "revealed" && (
-                          <div className="text-3xl md:text-4xl font-medium text-white/90">{genre} Sleeve Opened!</div>
+                          <div
+                            className="text-3xl md:text-4xl font-medium play-sleeve-genre"
+                            style={{ ["--rarity-rgb" as const]: theme.panelRarityRgb } as CSSProperties}
+                          >
+                            {genre} Sleeve Opened!
+                          </div>
                         )}
 
                         <div className={["muscino-opening-reveal-stage", openState === "revealed" ? "is-revealed" : ""].join(" ")}>

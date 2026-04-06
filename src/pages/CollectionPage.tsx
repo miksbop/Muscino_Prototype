@@ -37,6 +37,8 @@ export function CollectionPage() {
   const [artistQuery, setArtistQuery] = useState("");
   const [artistOptions, setArtistOptions] = useState<SpotifyArtistSearchResult[]>([]);
   const [artistSearchLoading, setArtistSearchLoading] = useState(false);
+  const [artistSearchCompletedQuery, setArtistSearchCompletedQuery] = useState("");
+  const [artistSearchError, setArtistSearchError] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<SpotifyArtistSearchResult | null>(null);
   const [rerolling, setRerolling] = useState(false);
   const [rerollFxOpen, setRerollFxOpen] = useState(false);
@@ -47,6 +49,7 @@ export function CollectionPage() {
   const [hasPreviewReactiveSignal, setHasPreviewReactiveSignal] = useState(false);
   const rerollFxTimersRef = useRef<number[]>([]);
   const artistSearchRequestIdRef = useRef(0);
+  const artistSearchCacheRef = useRef<Map<string, SpotifyArtistSearchResult[]>>(new Map());
   const [artistHintPulse, setArtistHintPulse] = useState(false);
   const [songHintPulse, setSongHintPulse] = useState(false);
   const [hoveredRerollSongId, setHoveredRerollSongId] = useState<string | null>(null);
@@ -221,24 +224,41 @@ export function CollectionPage() {
       artistSearchRequestIdRef.current += 1;
       setArtistOptions([]);
       setArtistSearchLoading(false);
+      setArtistSearchCompletedQuery("");
+      setArtistSearchError("");
       return;
     }
 
+    const cached = artistSearchCacheRef.current.get(query);
+    if (cached) {
+      setArtistOptions(cached);
+      setArtistSearchLoading(false);
+      setArtistSearchCompletedQuery(query);
+      setArtistSearchError("");
+      return;
+    }
+
+    setArtistSearchLoading(true);
+    setArtistSearchCompletedQuery("");
+    setArtistSearchError("");
     const timerId = window.setTimeout(async () => {
       const requestId = ++artistSearchRequestIdRef.current;
       try {
-        setArtistSearchLoading(true);
         const artists = await api.searchSpotifyArtists(query);
         if (requestId !== artistSearchRequestIdRef.current) return;
+        artistSearchCacheRef.current.set(query, artists);
         setArtistOptions(artists);
+        setArtistSearchCompletedQuery(query);
       } catch {
         if (requestId !== artistSearchRequestIdRef.current) return;
         setArtistOptions([]);
+        setArtistSearchCompletedQuery(query);
+        setArtistSearchError("Spotify artist search is temporarily unavailable. Please try again in a moment.");
       } finally {
         if (requestId !== artistSearchRequestIdRef.current) return;
         setArtistSearchLoading(false);
       }
-    }, 250);
+    }, 450);
 
     return () => {
       window.clearTimeout(timerId);
@@ -429,7 +449,9 @@ export function CollectionPage() {
                     <div className="absolute z-10 mt-2 w-full rounded-lg border border-white/20 bg-neutral-950/95 shadow-2xl overflow-hidden">
                       {artistSearchLoading ? (
                         <div className="px-3 py-2 text-sm text-neutral-300">Searching Spotify artists…</div>
-                      ) : artistOptions.length === 0 ? (
+                      ) : artistSearchError ? (
+                        <div className="px-3 py-2 text-sm text-amber-300">{artistSearchError}</div>
+                      ) : artistSearchCompletedQuery === artistQuery.trim() && artistOptions.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-neutral-400">No artists found.</div>
                       ) : (
                         <div className="max-h-56 overflow-y-auto muscino-scroll">
