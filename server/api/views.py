@@ -3,6 +3,7 @@ import re
 import base64
 from pathlib import Path
 from django.db import transaction
+from django.db.models import Q
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -783,6 +784,52 @@ def friends_overview(request):
 
     return Response(_serialize_friends_payload(request.user))
 
+@api_view(['GET'])
+def friends_search(request):
+    if not request.user.is_authenticated:
+        return Response({'detail': 'authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    query = (request.query_params.get('q') or '').strip()
+    if len(query) < 2:
+        return Response({'results': []})
+
+    my_profile, _ = Profile.objects.get_or_create(user=request.user, defaults={'display_name': request.user.username})
+
+    friend_ids = set(my_profile.friends.values_list('user_id', flat=True))
+    pending_target_ids = set(
+        FriendRequest.objects.filter(
+            Q(from_user=request.user, status='pending') | Q(to_user=request.user, status='pending')
+        ).values_list('from_user_id', 'to_user_id')
+    )
+    excluded_user_ids: set[int] = {request.user.id}
+    excluded_user_ids.update(friend_ids)
+    for from_user_id, to_user_id in pending_target_ids:
+        excluded_user_ids.add(from_user_id)
+        excluded_user_ids.add(to_user_id)
+
+    raw_matches = (
+        User.objects
+        .select_related('profile')
+        .filter(Q(username__icontains=query) | Q(profile__display_name__icontains=query))
+        .exclude(id__in=excluded_user_ids)
+        .distinct()
+    )
+
+    lowered_query = query.lower()
+
+    def match_rank(candidate: User):
+        username = (candidate.username or '').lower()
+        display_name = ((getattr(candidate, 'profile', None) and candidate.profile.display_name) or '').lower()
+        starts_with_username = username.startswith(lowered_query)
+        starts_with_display = display_name.startswith(lowered_query)
+        return (
+            0 if (starts_with_username or starts_with_display) else 1,
+            abs(len(username) - len(lowered_query)),
+            username,
+        )
+
+    top_candidates = sorted(raw_matches, key=match_rank)[:6]
+    return Response({'results': FriendUserSerializer(top_candidates, many=True).data})
 
 @api_view(['POST'])
 def send_friend_request(request):

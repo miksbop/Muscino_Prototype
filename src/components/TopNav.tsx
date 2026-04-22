@@ -49,6 +49,11 @@ export function TopNav() {
   const [isRequestsExpanded, setIsRequestsExpanded] = useState(false);
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [friendSearchQuery, setFriendSearchQuery] = useState("");
+  const [friendSearchResults, setFriendSearchResults] = useState<FriendUser[]>([]);
+  const [isSearchingFriends, setIsSearchingFriends] = useState(false);
+  const [friendSearchMessage, setFriendSearchMessage] = useState<string | null>(null);
+  const [isSendingSearchRequest, setIsSendingSearchRequest] = useState<string | null>(null);
 
   const linkBase = "hover:text-white cursor-pointer transition-colors";
   const linkInactive = "text-neutral-300";
@@ -321,6 +326,46 @@ export function TopNav() {
     };
   }, [isSignedIn, isFriendsOpen]);
 
+  useEffect(() => {
+    if (!isSignedIn || !isFriendsOpen) return;
+    const query = friendSearchQuery.trim();
+    if (query.length < 2) {
+      setFriendSearchResults([]);
+      setFriendSearchMessage(null);
+      setIsSearchingFriends(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setIsSearchingFriends(true);
+      setFriendSearchMessage(null);
+      void api
+        .searchFriendProfiles(query)
+        .then((results) => {
+          if (cancelled) return;
+          setFriendSearchResults(results);
+          if (results.length === 0) {
+            setFriendSearchMessage("No profiles found.");
+          }
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setFriendSearchResults([]);
+          setFriendSearchMessage(error instanceof Error ? error.message : "Could not search profiles.");
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setIsSearchingFriends(false);
+        });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [friendSearchQuery, isFriendsOpen, isSignedIn]);
+
   const handleAcceptRequest = async (requestId: number) => {
     const data = await api.acceptFriendRequest(requestId);
     setFriends(data.friends);
@@ -332,6 +377,23 @@ export function TopNav() {
     setFriends(data.friends);
     setFriendRequests(data.incomingRequests);
   };
+
+  const handleSendRequestFromSearch = async (username: string) => {
+    setIsSendingSearchRequest(username);
+    setFriendSearchMessage(null);
+    try {
+      const data = await api.sendFriendRequest(username);
+      setFriends(data.friends);
+      setFriendRequests(data.incomingRequests);
+      setFriendSearchResults((prev) => prev.filter((candidate) => candidate.username !== username));
+      setFriendSearchMessage(`Friend request sent to @${username}.`);
+    } catch (error) {
+      setFriendSearchMessage(error instanceof Error ? error.message : "Could not send friend request.");
+    } finally {
+      setIsSendingSearchRequest(null);
+    }
+  };
+
 
     const handleWalletClick = async () => {
     try {
@@ -580,7 +642,56 @@ export function TopNav() {
         className={`friends-panel ${isFriendsOpen ? "friends-panel--open" : ""}`}
         aria-hidden={!isFriendsOpen}
       >
-        <div className="friends-panel__header">Friends</div>
+        <div className="friends-panel__header">
+          <span>Friends</span>
+          <div className="friends-search">
+            <input
+              type="text"
+              value={friendSearchQuery}
+              onChange={(event) => setFriendSearchQuery(event.target.value)}
+              className="friends-search__input"
+              placeholder="Search profiles"
+              aria-label="Search profiles"
+              autoComplete="off"
+            />
+            {(isSearchingFriends || friendSearchQuery.trim().length >= 2) ? (
+              <div className="friends-search__dropdown" role="listbox" aria-label="Profile search results">
+                {isSearchingFriends ? <p className="friends-search__status">Searching…</p> : null}
+                {!isSearchingFriends && friendSearchMessage ? (
+                  <p className="friends-search__status">{friendSearchMessage}</p>
+                ) : null}
+                {!isSearchingFriends &&
+                  !friendSearchMessage &&
+                  friendSearchResults.map((candidate) => (
+                    <div key={candidate.id} className="friends-search__item">
+                      <Link
+                        to={`/profile/${encodeURIComponent(candidate.username)}`}
+                        className="friends-search__profile"
+                      >
+                        <img
+                          src={candidate.avatarUrl ?? fallbackAvatar}
+                          alt={`${candidate.displayName} avatar`}
+                          className="friends-search__avatar"
+                        />
+                        <span>
+                          {candidate.displayName}
+                          <small>@{candidate.username}</small>
+                        </span>
+                      </Link>
+                      <button
+                        type="button"
+                        className="friends-search__add"
+                        onClick={() => void handleSendRequestFromSearch(candidate.username)}
+                        disabled={isSendingSearchRequest === candidate.username}
+                      >
+                        {isSendingSearchRequest === candidate.username ? "Sending..." : "Add"}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
         <div className="friends-panel__list" role="list" aria-label="Friends list">
           {friends.map((friend, index) => (
             <article

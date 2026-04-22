@@ -43,6 +43,10 @@ MAX_SEED_ARTISTS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_MAX_SEED_ARTISTS
 SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS = float(os.environ.get("SPOTIFY_MIN_REQUEST_INTERVAL_SECONDS", "0.80"))
 SPOTIFY_ARTIST_QUERY_DELAY_SECONDS = float(os.environ.get("SPOTIFY_ARTIST_QUERY_DELAY_SECONDS", "0.30"))
 MAX_REMOTE_SEARCH_CALLS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_MAX_SEARCH_CALLS_PER_GENRE", "60"))
+SEED_ARTIST_QUERIES_PER_ARTIST = int(os.environ.get("SPOTIFY_WEEKLY_SEED_ARTIST_QUERIES_PER_ARTIST", "2"))
+RECENT_RELEASE_QUERY_COUNT = int(os.environ.get("SPOTIFY_WEEKLY_RECENT_RELEASE_QUERY_COUNT", "3"))
+TARGET_ARTISTS_PER_GENRE = int(os.environ.get("SPOTIFY_WEEKLY_TARGET_ARTISTS_PER_GENRE", "20"))
+MAX_TRACKS_PER_SELECTED_ARTIST = int(os.environ.get("SPOTIFY_WEEKLY_MAX_TRACKS_PER_SELECTED_ARTIST", "5"))
 
 TARGET_DISTRIBUTION: dict[str, int] = {
     "Legendary": 1,
@@ -223,6 +227,7 @@ GENRE_CONFIG: dict[str, dict[str, Any]] = {
             "NCT 127", "ENHYPEN", "ITZY", "(G)I-DLE", "Red Velvet",
             "ATEEZ", "TXT", "SHINee", "BIGBANG", "Girls' Generation",
             "RIIZE", "BABYMONSTER", "ILLIT", "KISS OF LIFE", "BOYNEXTDOOR",
+            "KATSEYE",
         ],
     },
     "Dance/Electronic": {
@@ -270,6 +275,16 @@ class Candidate:
     spotify_url: str | None
     popularity: int | None
     release_date: str | None
+    source_type: str
+    source_query: str
+    artist_track_rank: int | None = None
+
+
+@dataclass
+class ArtistCandidate:
+    artist_id: str | None
+    artist: str
+    popularity: int | None
     source_type: str
     source_query: str
 
@@ -393,7 +408,13 @@ def _release_recency_score(release_date: str | None) -> float:
     return 0.25
 
 
-def _map_track(item: dict[str, Any], *, source_type: str, source_query: str) -> Candidate | None:
+def _map_track(
+    item: dict[str, Any],
+    *,
+    source_type: str,
+    source_query: str,
+    artist_track_rank: int | None = None,
+) -> Candidate | None:
     track_id = item.get("id")
     if not track_id:
         return None
@@ -417,6 +438,7 @@ def _map_track(item: dict[str, Any], *, source_type: str, source_query: str) -> 
         release_date=item.get("album", {}).get("release_date"),
         source_type=source_type,
         source_query=source_query,
+        artist_track_rank=artist_track_rank,
     )
 
 
@@ -449,6 +471,105 @@ def _search_tracks(token: str, query_text: str, limit: int, market: str) -> list
         offset += page_size
 
     return collected[:limit]
+
+
+def _search_artists(token: str, query_text: str, limit: int, market: str) -> list[dict[str, Any]]:
+    page_size = min(50, max(1, limit))
+    payload = spotify_get(
+        "/search",
+        token,
+        {
+            "q": query_text,
+            "type": "artist",
+            "limit": page_size,
+            "offset": 0,
+            "market": market,
+        },
+    )
+    items = payload.get("artists", {}).get("items", [])
+    return items[:limit]
+
+
+def _map_artist(item: dict[str, Any], *, source_type: str, source_query: str) -> ArtistCandidate | None:
+    artist_name = (item.get("name") or "").strip()
+    if not artist_name:
+        return None
+    return ArtistCandidate(
+        artist_id=item.get("id"),
+        artist=artist_name,
+        popularity=item.get("popularity"),
+        source_type=source_type,
+        source_query=source_query,
+    )
+
+
+def _pick_artists_for_genre(token: str, genre: str, market: str) -> list[ArtistCandidate]:
+    cfg = GENRE_CONFIG.get(genre, {"seed_artists": []})
+    rotated_seed_artists = _rotated_seed_artists(genre, cfg["seed_artists"])
+    by_artist_key: dict[str, ArtistCandidate] = {}
+    search_calls = 0
+
+    for artist_name in rotated_seed_artists:
+        if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE:
+            break
+        query_text = f'artist:"{artist_name}" genre:{genre.lower()}'
+        search_calls += 1
+        for item in _search_artists(token, query_text=query_text, limit=3, market=market):
+            mapped = _map_artist(item, source_type="artist_seed", source_query=query_text)
+            if not mapped:
+                continue
+            key = _normalize_artist_name(mapped.artist)
+            if key == _normalize_artist_name(artist_name) and key not in by_artist_key:
+                by_artist_key[key] = mapped
+                break
+        if len(by_artist_key) >= TARGET_ARTISTS_PER_GENRE:
+            break
+
+    for query_text in _recent_release_queries(genre)[:RECENT_RELEASE_QUERY_COUNT]:
+        if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE or len(by_artist_key) >= TARGET_ARTISTS_PER_GENRE:
+            break
+        search_calls += 1
+        for item in _search_tracks(token, query_text=query_text, limit=20, market=market):
+            artists = item.get("artists", [])
+            if not artists:
+                continue
+            primary = artists[0]
+            mapped = _map_artist(primary, source_type="recent_track_artist", source_query=query_text)
+            if not mapped:
+                continue
+            key = _normalize_artist_name(mapped.artist)
+            if key not in by_artist_key:
+                by_artist_key[key] = mapped
+
+    ranked = sorted(
+        by_artist_key.values(),
+        key=lambda a: (
+            a.popularity if a.popularity is not None else 0,
+            _stable_jitter(f"{genre}:{a.artist}"),
+        ),
+        reverse=True,
+    )
+    return ranked[:TARGET_ARTISTS_PER_GENRE]
+
+
+def _rotated_seed_artists(genre: str, artists: list[str]) -> list[str]:
+    """
+    Rotate the fixed seed list by week so we don't keep querying the exact same
+    first N artists every refresh.
+    """
+    if not artists:
+        return artists
+    week_offset = date.today().isocalendar()[1] % len(artists)
+    return artists[week_offset:] + artists[:week_offset]
+
+
+def _recent_release_queries(genre: str) -> list[str]:
+    current_year = date.today().year
+    return [
+        f'genre:"{genre.lower()}" tag:new',
+        f'genre:"{genre.lower()}" year:{current_year}',
+        f'genre:"{genre.lower()}" year:{current_year - 1}',
+    ]
 
 
 def _local_candidates_for_genre(genre: str, limit: int) -> list[Candidate]:
@@ -497,40 +618,41 @@ def _local_candidates_for_genre(genre: str, limit: int) -> list[Candidate]:
 
 
 def fetch_candidates_for_genre(token: str, genre: str, limit: int, market: str) -> list[Candidate]:
-    cfg = GENRE_CONFIG.get(genre, {"seed_artists": []})
-
     by_track_id: dict[str, Candidate] = {}
-    search_calls = 0
 
     try:
-        # Source A: hard-curated top artists per genre (search-only).
-        # This intentionally prioritizes recognisable mainstream catalog over raw genre search noise.
-        for artist_name in cfg["seed_artists"][:MAX_SEED_ARTISTS_PER_GENRE]:
-            artist_key = _normalize_artist_name(artist_name)
-            artist_hits = 0
-            for query_text in (f'artist:\"{artist_name}\" genre:{genre.lower()}', f'artist:\"{artist_name}\"'):
-                if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE:
-                    break
-                search_calls += 1
-                for item in _search_tracks(token, query_text=query_text, limit=min(limit, 3), market=market):
-                    item_artists = item.get("artists", [])
-                    primary_artist_name = item_artists[0].get("name", "") if item_artists else ""
-                    if _normalize_artist_name(primary_artist_name) != artist_key:
-                        continue
-                    mapped = _map_track(item, source_type="artist_search", source_query=query_text)
-                    if mapped and mapped.track_id not in by_track_id:
-                        by_track_id[mapped.track_id] = mapped
-                        artist_hits += 1
-                if artist_hits > 0:
-                    break
-                time.sleep(max(0.0, SPOTIFY_ARTIST_QUERY_DELAY_SECONDS))
-            if search_calls >= MAX_REMOTE_SEARCH_CALLS_PER_GENRE:
-                print(
-                    f"Reached max Spotify search calls for genre={genre} "
-                    f"({MAX_REMOTE_SEARCH_CALLS_PER_GENRE}); using collected candidates so far."
+        selected_artists = _pick_artists_for_genre(token=token, genre=genre, market=market)
+
+        for selected in selected_artists:
+            if not selected.artist_id:
+                continue
+            query_text = f'artist:"{selected.artist}" genre:{genre.lower()}'
+            track_items = _search_tracks(
+                token,
+                query_text=query_text,
+                limit=max(3, min(limit, MAX_TRACKS_PER_SELECTED_ARTIST)),
+                market=market,
+            )
+            artist_tracks_added = 0
+            for idx, item in enumerate(track_items, start=1):
+                item_artists = item.get("artists", [])
+                primary_artist_name = item_artists[0].get("name", "") if item_artists else ""
+                if _normalize_artist_name(primary_artist_name) != _normalize_artist_name(selected.artist):
+                    continue
+                mapped = _map_track(
+                    item,
+                    source_type="artist_track_roll",
+                    source_query=query_text,
+                    artist_track_rank=idx,
                 )
-                break
-            if len(by_track_id) >= max(limit * 2, TOTAL_SLEEVE_SIZE):
+                if mapped and mapped.track_id not in by_track_id:
+                    by_track_id[mapped.track_id] = mapped
+                    artist_tracks_added += 1
+                if artist_tracks_added >= MAX_TRACKS_PER_SELECTED_ARTIST:
+                    break
+            time.sleep(max(0.0, SPOTIFY_ARTIST_QUERY_DELAY_SECONDS))
+
+            if len(by_track_id) >= max(TOTAL_SLEEVE_SIZE * 3, limit * 2):
                 break
     except error.HTTPError as exc:
         if exc.code in (403, 429):
@@ -567,6 +689,7 @@ def score_candidates(candidates: list[Candidate], genre: str) -> list[ScoredCand
         source_boost = {
             "genre_search": 1.0,
             "artist_search": 0.9,
+            "artist_track_roll": 0.98,
             "local_curated": 0.92,
             "local_catalog": 0.82,
         }.get(c.source_type, 0.85)
@@ -584,7 +707,8 @@ def score_candidates(candidates: list[Candidate], genre: str) -> list[ScoredCand
         )
 
         # Rarity-fit stays separate from relevance.
-        legendary_fit = relevance + 0.25 * popularity_norm + 0.10 * recency
+        rank_bonus = 0.10 if c.artist_track_rank == 1 else (0.05 if c.artist_track_rank == 2 else 0.0)
+        legendary_fit = relevance + 0.25 * popularity_norm + 0.10 * recency + rank_bonus
         epic_fit = relevance + 0.20 * (1 - abs(popularity_norm - 0.72))
         rare_fit = relevance + 0.19 * (1 - abs(popularity_norm - 0.60))
         uncommon_fit = relevance + 0.20 * (1 - abs(popularity_norm - 0.52)) + 0.04 * source_boost
@@ -641,8 +765,19 @@ def select_final_sleeve(scored: list[ScoredCandidate]) -> list[tuple[ScoredCandi
 
     chosen: list[tuple[ScoredCandidate, str]] = []
 
+    # Force legendary to come from a top-indexed per-artist track when available.
+    top_indexed = [row for row in scored if row.candidate.artist_track_rank == 1]
+    legendary_pool = top_indexed or scored
+    legendary_pick = _select_bucket(
+        pool=legendary_pool,
+        already_used_track_ids=used_tracks,
+        already_used_artists=used_artists,
+        target_count=TARGET_DISTRIBUTION["Legendary"],
+        fit_attr="legendary_fit",
+    )
+    chosen.extend((p, "Legendary") for p in legendary_pick)
+
     for rarity, fit_attr in (
-        ("Legendary", "legendary_fit"),
         ("Epic", "epic_fit"),
         ("Rare", "rare_fit"),
         ("Uncommon", "uncommon_fit"),

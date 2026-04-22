@@ -17,6 +17,7 @@ urlpatterns = [
     path('profiles/<str:username>/', views.profile_detail, name='profile_detail'),
     path('profiles/<str:username>/update/', views.profile_update, name='profile_update'),
     path('friends/', views.friends_overview, name='friends_overview'),
+    path('friends/search/', views.friends_search, name='friends_search'),
     path('friends/requests/', views.send_friend_request, name='send_friend_request'),
     path('friends/requests/<int:request_id>/accept/', views.accept_friend_request, name='accept_friend_request'),
     path('friends/requests/<int:request_id>/deny/', views.deny_friend_request, name='deny_friend_request'),

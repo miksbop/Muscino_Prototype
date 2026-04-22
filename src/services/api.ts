@@ -23,7 +23,7 @@ export type SpotifyArtistSearchResult = {
 import type { Sleeve } from "../types/sleeve";
 import type { MarketListing } from "../types/market";
 import type { ProfileView } from "../types/profile";
-import type { FriendsOverview } from "../types/friends";
+import type { FriendsOverview, FriendUser } from "../types/friends";
 
 async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const res = await fetch(input, {
@@ -206,6 +206,13 @@ export const api = {
     return await fetchJson<FriendsOverview>("/api/friends/");
   },
 
+  async searchFriendProfiles(query: string): Promise<FriendUser[]> {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+    const data = await fetchJson<{ results: FriendUser[] }>(`/api/friends/search/?q=${encodeURIComponent(trimmed)}`);
+    return data.results ?? [];
+  },
+  
   async sendFriendRequest(username: string): Promise<FriendsOverview> {
     return await fetchJson<FriendsOverview>("/api/friends/requests/", {
       method: "POST",

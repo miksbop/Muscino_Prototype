@@ -25,9 +25,11 @@ const COLS_DESKTOP = 4;
 const REROLL_DROP_MS = 480;
 const REROLL_MERGE_MS = 260;
 const REROLL_EXPLOSION_MS = 420;
+const RECENT_ARTISTS_MAX = 8;
+const RECENT_ARTISTS_STORAGE_KEY = "muscino:reroll-recent-artists-by-user";
 
 export function CollectionPage() {
-  const { refreshUser } = useAuth();
+  const { refreshUser, user } = useAuth();
   const [songs, setSongs] = useState<OwnedSong[]>([]);
   const [selected, setSelected] = useState<OwnedSong | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +42,8 @@ export function CollectionPage() {
   const [artistSearchCompletedQuery, setArtistSearchCompletedQuery] = useState("");
   const [artistSearchError, setArtistSearchError] = useState("");
   const [selectedArtist, setSelectedArtist] = useState<SpotifyArtistSearchResult | null>(null);
+  const [recentArtists, setRecentArtists] = useState<SpotifyArtistSearchResult[]>([]);
+  const [artistMenuOpen, setArtistMenuOpen] = useState(false);
   const [rerolling, setRerolling] = useState(false);
   const [rerollFxOpen, setRerollFxOpen] = useState(false);
   const [rerollFxState, setRerollFxState] = useState<RerollFxState>("idle");
@@ -53,6 +57,40 @@ export function CollectionPage() {
   const [artistHintPulse, setArtistHintPulse] = useState(false);
   const [songHintPulse, setSongHintPulse] = useState(false);
   const [hoveredRerollSongId, setHoveredRerollSongId] = useState<string | null>(null);
+
+  const userId = user?.id ?? "";
+  const artistQueryTrimmed = artistQuery.trim();
+
+  const readStoredRecentArtistsByUser = (): Record<string, SpotifyArtistSearchResult[]> => {
+    try {
+      const raw = window.localStorage.getItem(RECENT_ARTISTS_STORAGE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, SpotifyArtistSearchResult[]>;
+      return typeof parsed === "object" && parsed ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const writeStoredRecentArtistsForUser = (nextRecentArtists: SpotifyArtistSearchResult[]) => {
+    if (!userId) return;
+    const existing = readStoredRecentArtistsByUser();
+    existing[userId] = nextRecentArtists.slice(0, RECENT_ARTISTS_MAX);
+    try {
+      window.localStorage.setItem(RECENT_ARTISTS_STORAGE_KEY, JSON.stringify(existing));
+    } catch {
+      // no-op: localStorage may be unavailable
+    }
+  };
+
+  const pushRecentArtist = (artist: SpotifyArtistSearchResult) => {
+    setRecentArtists((current) => {
+      const withoutMatch = current.filter((entry) => entry.id !== artist.id);
+      const next = [artist, ...withoutMatch].slice(0, RECENT_ARTISTS_MAX);
+      writeStoredRecentArtistsForUser(next);
+      return next;
+    });
+  };
 
   const clearRerollFxTimers = () => {
     rerollFxTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -133,6 +171,22 @@ export function CollectionPage() {
     setRerollFxInputs([]);
     setRerollResultSong(null);
   };
+
+    const selectArtist = (artist: SpotifyArtistSearchResult) => {
+    stopSongPreview();
+    setSelectedArtist(artist);
+    setArtistQuery(artist.name);
+    setArtistOptions([]);
+    setArtistSearchError("");
+    setArtistSearchCompletedQuery("");
+    setArtistMenuOpen(false);
+    pushRecentArtist(artist);
+    if (rerollSelection.length < 3) {
+      setSongHintPulse(true);
+      window.setTimeout(() => setSongHintPulse(false), 820);
+    }
+  };
+
 
   const playRerollFx = (inputs: OwnedSong[], resultSong: OwnedSong) => {
     clearRerollFxTimers();
@@ -219,7 +273,7 @@ export function CollectionPage() {
   };
 
   useEffect(() => {
-    const query = artistQuery.trim();
+    const query = artistQueryTrimmed;
     if (query.length < 2) {
       artistSearchRequestIdRef.current += 1;
       setArtistOptions([]);
@@ -255,15 +309,26 @@ export function CollectionPage() {
         setArtistSearchCompletedQuery(query);
         setArtistSearchError("Spotify artist search is temporarily unavailable. Please try again in a moment.");
       } finally {
-        if (requestId !== artistSearchRequestIdRef.current) return;
-        setArtistSearchLoading(false);
+        if (requestId === artistSearchRequestIdRef.current) {
+          setArtistSearchLoading(false);
+        }
       }
     }, 450);
 
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [artistQuery]);
+  }, [artistQueryTrimmed]);
+
+  useEffect(() => {
+    if (!userId) {
+      setRecentArtists([]);
+      return;
+    }
+    const byUser = readStoredRecentArtistsByUser();
+    const next = Array.isArray(byUser[userId]) ? byUser[userId].slice(0, RECENT_ARTISTS_MAX) : [];
+    setRecentArtists(next);
+  }, [userId]);
 
     useEffect(() => {
     if (rerollFxState === "revealed" && rerollResultSong) {
@@ -272,6 +337,12 @@ export function CollectionPage() {
   }, [rerollFxState, rerollResultSong]);
 
   const rerollReady = Boolean(selectedArtist) && rerollSelection.length === 3;
+  const showArtistDropdown = !selectedArtist && artistMenuOpen && (
+    artistSearchLoading
+    || artistQueryTrimmed.length >= 2
+    || recentArtists.length > 0
+    || Boolean(artistSearchError)
+  );
 
   return (
     <div className="h-full bg-neutral-950 text-white">
@@ -440,35 +511,40 @@ export function CollectionPage() {
                       stopSongPreview();
                       setArtistQuery(e.target.value);
                       setSelectedArtist(null);
+                      setArtistMenuOpen(true);
+                    }}
+                    onFocus={() => {
+                      if (!selectedArtist) setArtistMenuOpen(true);
+                    }}
+                    onBlur={() => {
+                      window.setTimeout(() => setArtistMenuOpen(false), 110);
                     }}
                     placeholder="Search artists (e.g. Drake, Paramore, Skrillex)"
                     className="w-full px-3 py-2 rounded-lg bg-black/40 border border-white/15 outline-none focus:border-white/40"
                     disabled={rerolling}
                   />
-                  {(artistSearchLoading || artistQuery.trim().length >= 2) && !selectedArtist && (
+                  {showArtistDropdown && (
                     <div className="absolute z-10 mt-2 w-full rounded-lg border border-white/20 bg-neutral-950/95 shadow-2xl overflow-hidden">
                       {artistSearchLoading ? (
                         <div className="px-3 py-2 text-sm text-neutral-300">Searching Spotify artists…</div>
                       ) : artistSearchError ? (
                         <div className="px-3 py-2 text-sm text-amber-300">{artistSearchError}</div>
-                      ) : artistSearchCompletedQuery === artistQuery.trim() && artistOptions.length === 0 ? (
+                      ) : artistQueryTrimmed.length >= 2 && artistSearchCompletedQuery === artistQueryTrimmed && artistOptions.length === 0 ? (
                         <div className="px-3 py-2 text-sm text-neutral-400">No artists found.</div>
                       ) : (
                         <div className="max-h-56 overflow-y-auto muscino-scroll">
-                          {artistOptions.map((artist) => (
+                          {artistQueryTrimmed.length < 2 && recentArtists.length > 0 ? (
+                            <div className="px-3 py-2 text-[11px] uppercase tracking-[0.08em] text-neutral-400 border-b border-white/10">
+                              Recently Selected Artists
+                            </div>
+                          ) : null}
+                          {(artistQueryTrimmed.length >= 2 ? artistOptions : recentArtists).map((artist) => (
                             <button
                               key={artist.id}
                               type="button"
                               className="w-full px-3 py-2 text-left text-sm hover:bg-white/10 flex items-center justify-between gap-3 border-b border-white/5 last:border-b-0"
                               onClick={() => {
-                                stopSongPreview();
-                                setSelectedArtist(artist);
-                                setArtistQuery(artist.name);
-                                setArtistOptions([]);
-                                if (rerollSelection.length < 3) {
-                                  setSongHintPulse(true);
-                                  window.setTimeout(() => setSongHintPulse(false), 820);
-                                }
+                                selectArtist(artist);
                               }}
                             >
                               <span className="truncate">{artist.name}</span>

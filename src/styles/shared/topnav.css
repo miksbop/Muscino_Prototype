@@ -355,9 +355,122 @@
 .friends-panel__header {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
   font-size: 1.25rem;
   font-weight: 500;
   color: rgb(229, 231, 235);
+}
+
+.friends-search {
+  position: relative;
+  width: min(13.5rem, 65%);
+}
+
+.friends-search__input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 12, 20, 0.95);
+  color: rgb(229, 231, 235);
+  border-radius: 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 0.42rem 0.56rem;
+}
+
+.friends-search__input::placeholder {
+  color: rgb(148, 163, 184);
+}
+
+.friends-search__input:focus {
+  outline: none;
+  border-color: rgba(125, 211, 252, 0.6);
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.2);
+}
+
+.friends-search__dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: 100%;
+  max-height: 15rem;
+  overflow-y: auto;
+  background: rgba(6, 8, 14, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0.65rem;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+  padding: 0.4rem;
+  z-index: 4;
+}
+
+.friends-search__status {
+  margin: 0;
+  font-size: 0.73rem;
+  color: rgb(163, 163, 163);
+  padding: 0.3rem 0.4rem;
+}
+
+.friends-search__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  padding: 0.32rem;
+  border-radius: 0.48rem;
+}
+
+.friends-search__item + .friends-search__item {
+  margin-top: 0.2rem;
+}
+
+.friends-search__item:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.friends-search__profile {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: rgb(229, 231, 235);
+}
+
+.friends-search__avatar {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.friends-search__profile span {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.74rem;
+  line-height: 1.1;
+}
+
+.friends-search__profile small {
+  color: rgb(148, 163, 184);
+  font-size: 0.66rem;
+}
+
+.friends-search__add {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgb(229, 231, 235);
+  border-radius: 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.24rem 0.5rem;
+}
+
+.friends-search__add:disabled {
+  opacity: 0.7;
+  cursor: wait;
 }
 
 .friends-panel__list {
