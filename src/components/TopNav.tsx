@@ -54,6 +54,7 @@ export function TopNav() {
   const [isSearchingFriends, setIsSearchingFriends] = useState(false);
   const [friendSearchMessage, setFriendSearchMessage] = useState<string | null>(null);
   const [isSendingSearchRequest, setIsSendingSearchRequest] = useState<string | null>(null);
+  const friendSearchContainerRef = useRef<HTMLDivElement | null>(null);
 
   const linkBase = "hover:text-white cursor-pointer transition-colors";
   const linkInactive = "text-neutral-300";
@@ -394,6 +395,37 @@ export function TopNav() {
     }
   };
 
+    const resetFriendSearch = useCallback(() => {
+    setFriendSearchQuery("");
+    setFriendSearchResults([]);
+    setFriendSearchMessage(null);
+    setIsSearchingFriends(false);
+    setIsSendingSearchRequest(null);
+  }, []);
+
+  const closeFriendsPanel = useCallback(() => {
+    setIsFriendsOpen(false);
+    setIsRequestsExpanded(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isFriendsOpen) return;
+
+    const handleClickOutsideSearch = (event: globalThis.MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const clickedInsideSearch = !!friendSearchContainerRef.current?.contains(target);
+      const selectedSearchProfile = !!target.closest("[data-friend-search-select='true']");
+      if (clickedInsideSearch || selectedSearchProfile) return;
+      resetFriendSearch();
+    };
+
+    document.addEventListener("mousedown", handleClickOutsideSearch);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideSearch);
+    };
+  }, [isFriendsOpen, resetFriendSearch]);
 
     const handleWalletClick = async () => {
     try {
@@ -565,7 +597,10 @@ export function TopNav() {
                 onClick={() => {
                   setIsFriendsOpen((prev) => {
                     const next = !prev;
-                    if (!next) setIsRequestsExpanded(false);
+                    if (!next) {
+                      setIsRequestsExpanded(false);
+                      resetFriendSearch();
+                    }
                     return next;
                   });
                 }}
@@ -644,7 +679,7 @@ export function TopNav() {
       >
         <div className="friends-panel__header">
           <span>Friends</span>
-          <div className="friends-search">
+          <div className="friends-search" ref={friendSearchContainerRef}>
             <input
               type="text"
               value={friendSearchQuery}
@@ -667,6 +702,8 @@ export function TopNav() {
                       <Link
                         to={`/profile/${encodeURIComponent(candidate.username)}`}
                         className="friends-search__profile"
+                        data-friend-search-select="true"
+                        onClick={closeFriendsPanel}
                       >
                         <img
                           src={candidate.avatarUrl ?? fallbackAvatar}
@@ -703,6 +740,7 @@ export function TopNav() {
               <Link
                 to={`/profile/${encodeURIComponent(friend.username)}`}
                 className="friends-card__main"
+                onClick={closeFriendsPanel}
               >
                 <div className="friends-card__row">
                   <div className="friends-card__meta">
@@ -744,6 +782,7 @@ export function TopNav() {
                   <Link
                     to={`/profile/${encodeURIComponent(request.fromUser.username)}`}
                     className="friends-requests-card__profile"
+                    onClick={closeFriendsPanel}
                   >
                     <img src={request.fromUser.avatarUrl ?? fallbackAvatar} alt={`${request.fromUser.displayName} avatar`} className="friends-requests-card__avatar" />
                     <div className="friends-requests-card__meta">
