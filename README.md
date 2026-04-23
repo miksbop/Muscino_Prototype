@@ -1,73 +1,99 @@
-# React + TypeScript + Vite
+# Muscino: Algorithm-Driven Music Collection Site
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Course:** CIS 485 — Directed Research in CIS  
+**Authors:** Michael Pastora, Aidan Cameron, and Justin Liang
 
-Currently, two official plugins are available:
+## Project Overview
+Muscino is a full-stack social e-commerce web application that treats real-world songs as collectible items. The platform gamifies music engagement through sleeve opening mechanics, rarity tiers, a user inventory, reroll systems, and a player-driven marketplace.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+The core technical goal is not only to deliver collectible-music gameplay, but also to support **algorithm-driven maintainability**: new content can be curated and introduced by automated systems rather than purely manual developer updates.
 
-## React Compiler
+## Abstract (Condensed)
+Modern streaming services prioritize convenience over ownership. Muscino reintroduces ownership by letting users collect songs through game-like systems. We developed key algorithms for sleeve opening, sleeve curation, and inventory rerolling to balance engagement, fairness, and long-term system sustainability. Despite API deprecations (notably from Spotify), the project adapted by integrating Apple API flows and fallback strategies.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Core Features
+### Functional Features
+- Sleeve opening to acquire songs with rarity outcomes.
+- Inventory and profile systems tied to user ownership.
+- Song reroll mechanic (exchange 3 owned songs for a randomized artist-based result).
+- In-app economy with user marketplace and virtual currency.
 
-## Expanding the ESLint configuration
+### Non-Functional Features
+- Responsive frontend behavior across viewports.
+- Predictable and fair user outcomes (e.g., open sleeve => guaranteed song).
+- Ongoing content freshness via automated curation logic.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## System Architecture
+### Frontend
+- React + TypeScript SPA built with Vite.
+- React Router for route-based navigation.
+- Tailwind CSS/PostCSS and custom CSS for styling and UI polish.
+- Shared global session state via auth context plus page-local interactive state.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Backend
+- Django + Django REST Framework.
+- SQLite for development and testing persistence.
+- Typed API boundaries between client and server (`src/services/api.ts`).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Algorithms Implemented
+1. **Sleeve Opening Algorithm**
+   - Validates user/session and currency requirements.
+   - Applies rarity-based selection probabilities.
+   - Grants ownership + XP with default rarity fallback behavior.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Sleeve Curation Algorithm**
+   - Builds fixed-size sleeves (12 songs) with rarity mix constraints.
+   - Sources and scores candidates by weighted relevance signals.
+   - Enforces song uniqueness and artist diversity with controlled backfill.
+
+3. **Inventory Reroll Algorithm**
+   - Requires exactly 3 unique, owned, non-listed songs.
+   - Uses Apple API as primary artist-track source (Spotify fallback).
+   - Applies rarity logic from search position, with weighted boosts from consumed song rarities.
+   - Executes atomically to preserve data integrity.
+
+## Roadblocks and Solutions
+- **Spotify API deprecations (Feb 2026):** migrated key retrieval flows toward Apple API while maintaining fallback logic.
+- **Rarity without popularity endpoints:** switched to index-based and weighted rarity mapping.
+- **Artist mismatch during reroll:** added tokenized name matching to improve correctness.
+- **Preview accuracy issues:** added normalization, query strategy tiers, scoring, and caching for robust 30-second preview retrieval.
+
+## Current Status
+The application is mostly feature complete and currently focused on:
+- tightening automated curation quality,
+- improving UX polish,
+- hardening security for production-readiness,
+- continuing iterative play-testing.
+
+## Local Development
+### Prerequisites
+- Node.js + npm
+- Python 3.x
+
+### Frontend
+```bash
+npm install
+npm run dev
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Backend
+```bash
+cd server
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
 ```
+
+## Repository Structure (High-Level)
+- `src/` — React frontend (pages, components, context, services, styles)
+- `server/` — Django backend (API models/views/serializers/management)
+- `public/` — static assets (icons, fonts, sounds, backgrounds)
+- `markdownplans/` — internal planning/implementation notes
+
+## References
+- Django Documentation: https://docs.djangoproject.com/en/6.0/ref/
+- Spotify Developer Update (Feb 2026): https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security
+- Spotify Developer Terms: https://developer.spotify.com/terms
+
+(Additional literature references are documented in the project paper.)
